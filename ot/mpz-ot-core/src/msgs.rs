@@ -8,6 +8,15 @@ use serde::{Deserialize, Serialize};
 pub enum OTMessage {
     /// CO15 protocol messages
     CO15(crate::chou_orlandi::msgs::Message),
+    /// KOS15 protocol messages
+    KOS15(crate::kos::msgs::Message),
+}
+
+/// A message sent by the receiver which a sender can use to perform
+/// Beaver derandomization.
+pub struct Derandomize {
+    /// Correction bits
+    pub flip: Vec<u8>,
 }
 
 // /// OT extension Sender plays the role of base OT Receiver and sends the
