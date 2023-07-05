@@ -1,9 +1,7 @@
-use super::{
-    OTError, ObliviousReceiveOwned, ObliviousRevealOwned, ObliviousSendOwned, ObliviousVerifyOwned,
-};
+//! Mock implementations of the OT protocols.
 
-mod borrowed;
-mod owned;
+//mod owned;
+mod shared;
 
-pub use borrowed::*;
-pub use owned::*;
+//pub use owned::*;
+pub use shared::{mock_ot_pair, MockSharedOTReceiver, MockSharedOTSender};

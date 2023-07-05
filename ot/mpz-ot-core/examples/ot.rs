@@ -3,16 +3,13 @@
 // For simplicity, this example shows how to use OT components in memory.
 
 use mpz_core::Block;
-use mpz_ot_core::dh_ot::{DhOtReceiver, DhOtSender};
-use rand::thread_rng;
+use mpz_ot_core::chou_orlandi::{Receiver, Sender};
 
 pub fn main() {
-    let mut rng = thread_rng();
-
     // Receiver choice bits
-    let choice = vec![false, true, false, false, true, true, false, true];
+    let choices = vec![false, true, false, false, true, true, false, true];
 
-    println!("Receiver choices: {:?}", &choice);
+    println!("Receiver choices: {:?}", &choices);
 
     // Sender messages the receiver chooses from
     let inputs = [
@@ -28,19 +25,20 @@ pub fn main() {
 
     println!("Sender inputs: {:?}", &inputs);
 
-    // First the sender creates a setup message and passes it to sender
-    let mut sender = DhOtSender::default();
-    let setup = sender.setup(&mut rng).unwrap();
+    // First the sender creates a setup message and passes it to receiver
+    let (sender_setup, sender) = Sender::default().setup();
 
-    // Receiver takes sender's setup and creates its own setup message
-    let mut receiver = DhOtReceiver::default();
-    let setup = receiver.setup(&mut rng, &choice, setup).unwrap();
+    // Receiver takes sender's setup and creates its own setup message, and
+    // generates the receiver payload
+    let (receiver_setup, mut receiver) = Receiver::default().setup(sender_setup);
+    let receiver_payload = receiver.receive_random(&choices);
 
     // Finally, sender encrypts their inputs and sends them to receiver
-    let payload = sender.send(&inputs, setup).unwrap();
+    let mut sender = sender.receive_setup(receiver_setup).unwrap();
+    let sender_payload = sender.send(&inputs, receiver_payload).unwrap();
 
     // Receiver takes the encrypted inputs and is able to decrypt according to their choice bits
-    let received = receiver.receive(payload).unwrap();
+    let received = receiver.receive(sender_payload).unwrap();
 
     println!("Transferred messages: {:?}", received);
 }
