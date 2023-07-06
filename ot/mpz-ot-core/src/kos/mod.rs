@@ -10,7 +10,7 @@ pub use config::{
     ReceiverConfig, ReceiverConfigBuilder, ReceiverConfigBuilderError, SenderConfig,
     SenderConfigBuilder, SenderConfigBuilderError,
 };
-pub use error::{ReceiverError, SenderError, SenderVerifyError};
+pub use error::{ReceiverError, ReceiverVerifyError, SenderError};
 use rand_chacha::ChaCha20Rng;
 use rand_core::SeedableRng;
 pub use receiver::{state as receiver_state, Receiver};
@@ -60,7 +60,7 @@ mod tests {
     #[fixture]
     fn receiver_seeds() -> [[Block; 2]; CSP] {
         let mut rng = ChaCha12Rng::seed_from_u64(3);
-        std::array::from_fn(|_| [rng.gen::<[u8; 16]>().into(), rng.gen::<[u8; 16]>().into()])
+        std::array::from_fn(|_| [rng.gen(), rng.gen()])
     }
 
     #[fixture]
@@ -183,5 +183,74 @@ mod tests {
         let err = sender.check(chi_seed, receiver_check).unwrap_err();
 
         assert!(matches!(err, SenderError::ConsistencyCheckFailed));
+    }
+
+    #[rstest]
+    fn test_kos_extension_verify_messages(
+        delta: Block,
+        sender_seeds: [Block; CSP],
+        receiver_seeds: [[Block; 2]; CSP],
+        chi_seed: Block,
+        choices: Vec<bool>,
+        data: Vec<[Block; 2]>,
+        expected: Vec<Block>,
+    ) {
+        let sender = Sender::new(SenderConfig::default());
+        let receiver = Receiver::new(ReceiverConfig::builder().sender_commit().build().unwrap());
+
+        let mut sender = sender.base_setup(delta, sender_seeds);
+        let mut receiver = receiver.base_setup(receiver_seeds);
+
+        let receiver_setup = receiver.extend(choices.len() + 256);
+        sender.extend(data.len() + 256, receiver_setup).unwrap();
+
+        let receiver_check = receiver.check(chi_seed);
+        sender.check(chi_seed, receiver_check).unwrap();
+
+        let derandomize = receiver.derandomize(&choices);
+        let payload = sender.send(&data, derandomize).unwrap();
+        let received = receiver.receive(payload).unwrap();
+
+        assert_eq!(received, expected);
+
+        receiver.verify(0, delta, &data).unwrap();
+    }
+
+    #[rstest]
+    fn test_kos_extension_verify_messages_fail(
+        delta: Block,
+        sender_seeds: [Block; CSP],
+        receiver_seeds: [[Block; 2]; CSP],
+        chi_seed: Block,
+        choices: Vec<bool>,
+        mut data: Vec<[Block; 2]>,
+        expected: Vec<Block>,
+    ) {
+        let sender = Sender::new(SenderConfig::default());
+        let receiver = Receiver::new(ReceiverConfig::builder().sender_commit().build().unwrap());
+
+        let mut sender = sender.base_setup(delta, sender_seeds);
+        let mut receiver = receiver.base_setup(receiver_seeds);
+
+        let receiver_setup = receiver.extend(choices.len() + 256);
+        sender.extend(data.len() + 256, receiver_setup).unwrap();
+
+        let receiver_check = receiver.check(chi_seed);
+        sender.check(chi_seed, receiver_check).unwrap();
+
+        let derandomize = receiver.derandomize(&choices);
+        let payload = sender.send(&data, derandomize).unwrap();
+        let received = receiver.receive(payload).unwrap();
+
+        assert_eq!(received, expected);
+
+        data[0][0] = Block::default();
+
+        let err = receiver.verify(0, delta, &data).unwrap_err();
+
+        assert!(matches!(
+            err,
+            ReceiverError::ReceiverVerifyError(ReceiverVerifyError::InconsistentPayload)
+        ));
     }
 }

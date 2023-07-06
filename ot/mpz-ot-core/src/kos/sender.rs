@@ -3,14 +3,13 @@ use crate::{
         msgs::{Check, Extend, SenderPayload},
         Rng, RngSeed, SenderConfig, SenderError, CSP, SSP,
     },
-    matrix::Matrix,
     msgs::Derandomize,
 };
 
 use itybity::IntoBitIterator;
 use mpz_core::{aes::FIXED_KEY_AES, Block};
 
-use rand::SeedableRng;
+use rand::{Rng as _, SeedableRng};
 use rand_chacha::ChaCha20Rng;
 use rand_core::RngCore;
 
@@ -67,7 +66,6 @@ impl Sender {
             state: state::Extension {
                 delta,
                 rngs,
-                qs: Vec::default(),
                 keys: Vec::default(),
                 counter: 0,
                 unchecked_qs: Vec::default(),
@@ -101,32 +99,41 @@ impl Sender<state::Extension> {
         // Round up the OTs to extend to the nearest multiple of 64 (matrix transpose optimization).
         let count = (count + 63) & !63;
 
+        const NROWS: usize = CSP;
+        let row_width = count / 8;
+
+        let Extend {
+            us,
+            count: receiver_count,
+        } = extend;
+
         // Make sure the number of OTs to extend matches the receiver's setup message.
-        if extend.count != count {
-            return Err(SenderError::CountMismatch(extend.count, count));
+        if receiver_count != count {
+            return Err(SenderError::CountMismatch(receiver_count, count));
         }
 
-        const NROWS: usize = CSP;
-        let mut unchecked_qs = Matrix::new(vec![0u8; NROWS * count / 8], count / 8);
-        let us = Matrix::new(extend.us, count / 8);
+        if us.len() != NROWS * row_width {
+            panic!();
+        }
 
+        let mut qs = vec![0u8; NROWS * row_width];
         cfg_if::cfg_if! {
             if #[cfg(feature = "rayon")] {
                 let iter = self.state.delta
                     .par_iter_lsb0()
                     .zip(self.state.rngs.par_iter_mut())
-                    .zip(unchecked_qs.par_iter_rows_mut())
-                    .zip(us.par_iter_rows());
+                    .zip(qs.par_chunks_exact_mut(row_width))
+                    .zip(us.par_chunks_exact(row_width));
             } else {
                 let iter = self.state.delta
                     .iter_lsb0()
                     .zip(self.state.rngs.iter_mut())
-                    .zip(unchecked_qs.iter_rows_mut())
-                    .zip(us.iter_rows());
+                    .zip(qs.chunks_exact_mut(row_width))
+                    .zip(us.chunks_exact(row_width));
             }
         }
 
-        let zero = vec![0u8; count / 8];
+        let zero = vec![0u8; row_width];
         iter.for_each(|(((b, rng), q), u)| {
             rng.fill_bytes(q);
             // If `b` is true, xor `u` into `q`, otherwise xor 0 into `q` (constant time).
@@ -134,11 +141,33 @@ impl Sender<state::Extension> {
             q.iter_mut().zip(u).for_each(|(q, u)| *q ^= u);
         });
 
-        unchecked_qs
-            .transpose_bits()
-            .expect("matrix is rectangular");
+        matrix_transpose::transpose_bits(&mut qs, NROWS).expect("matrix is rectangular");
 
-        self.state.unchecked_qs.extend(unchecked_qs);
+        cfg_if::cfg_if! {
+            if #[cfg(feature = "rayon")] {
+                let iter = qs.par_chunks_exact(NROWS / 8).enumerate();
+            } else {
+                let iter = qs.chunks_exact(NROWS / 8).enumerate();
+            }
+        }
+
+        let cipher = &(*FIXED_KEY_AES);
+        let (qs, keys): (Vec<_>, Vec<_>) = iter
+            .map(|(j, q)| {
+                let q: Block = q.try_into().unwrap();
+                let j = Block::new(((self.state.counter + j) as u128).to_be_bytes());
+
+                let k0 = cipher.tccr(j, q);
+                let k1 = cipher.tccr(j, q ^ self.state.delta);
+
+                (q, [k0, k1])
+            })
+            .unzip();
+
+        self.state.counter += count;
+
+        self.state.unchecked_qs.extend(qs);
+        self.state.unchecked_keys.extend(keys);
 
         Ok(())
     }
@@ -170,35 +199,30 @@ impl Sender<state::Extension> {
 
         let mut rng = Rng::from_seed(seed);
 
-        let mut unchecked_qs = self.state.unchecked_qs.take();
+        let unchecked_qs = std::mem::take(&mut self.state.unchecked_qs);
+        let mut unchecked_keys = std::mem::take(&mut self.state.unchecked_keys);
 
         // Figure 7, "Check correlation", point 1.
         // Sample random weights for the consistency check.
-        let chis = (0..unchecked_qs.rows())
-            .map(|_| Block::random(&mut rng))
+        let chis = (0..unchecked_qs.len())
+            .map(|_| rng.gen())
             .collect::<Vec<_>>();
 
         // Figure 7, "Check correlation", point 3.
         // Compute the random linear combinations.
         cfg_if::cfg_if! {
             if #[cfg(feature = "rayon")] {
-                let check = unchecked_qs.par_iter_rows()
+                let check = unchecked_qs.into_par_iter()
                     .zip(chis)
-                    .map(|(q, chi)| {
-                        let q: Block = q.try_into().unwrap();
-                        q.clmul(chi)
-                    })
+                    .map(|(q, chi)| q.clmul(chi))
                     .reduce(
                         || (Block::ZERO, Block::ZERO),
                         |(_a, _b), (a, b)| (a ^ _a, b ^ _b),
                     );
             } else {
-                let check = unchecked_qs.iter_rows()
+                let check = unchecked_qs.into_iter()
                     .zip(chis)
-                    .map(|(q, chi)| {
-                        let q: Block = q.try_into().unwrap();
-                        q.clmul(chi)
-                    })
+                    .map(|(q, chi)| q.clmul(chi))
                     .reduce(
                         |(_a, _b), (a, b)| (a ^ _a, b ^ _b),
                     ).unwrap();
@@ -215,11 +239,11 @@ impl Sender<state::Extension> {
         }
 
         // Strip off the rows sacrificed for the consistency check.
-        let nrows = unchecked_qs.rows() - (CSP + SSP);
-        unchecked_qs.truncate_rows(nrows);
+        let nrows = unchecked_keys.len() - (CSP + SSP);
+        unchecked_keys.truncate(nrows);
 
         // Add to existing qs.
-        self.state.qs.extend(unchecked_qs);
+        self.state.keys.extend(unchecked_keys);
 
         Ok(())
     }
@@ -244,48 +268,30 @@ impl Sender<state::Extension> {
             return Err(SenderError::CountMismatch(flip.len(), msgs.len()));
         }
 
-        if msgs.len() > self.state.qs.rows() {
+        if msgs.len() > self.state.keys.len() {
             return Err(SenderError::InsufficientSetup(
                 msgs.len(),
-                self.state.qs.rows(),
+                self.state.keys.len(),
             ));
         }
 
-        let qs = self.state.qs.drain_rows(0..msgs.len());
-        cfg_if::cfg_if! {
-            if #[cfg(feature = "rayon")] {
-                let iter = qs.par_iter_rows()
-                    .enumerate();
-            } else {
-                let iter = qs.iter_rows()
-                    .enumerate();
-            }
-        }
-
         // Encrypt the chosen messages using the generated keys from ROT.
-        let cipher = &(*FIXED_KEY_AES);
-        let ciphertexts = iter
+        let ciphertexts = self
+            .state
+            .keys
+            .drain(..msgs.len())
             .zip(msgs)
             .zip(flip)
-            .flat_map(|(((j, q), [m0, m1]), flip)| {
-                let q: Block = q.try_into().unwrap();
-                let j = Block::new(((self.state.counter + j) as u128).to_be_bytes());
-
-                // Figure 7, "Randomize".
-                let k0 = cipher.tccr(j, q);
-                let k1 = cipher.tccr(j, q ^ self.state.delta);
-
+            .flat_map(|(([k0, k1], [m0, m1]), flip)| {
                 // Use Beaver derandomization to correct the receiver's choices
                 // from the extension phase.
                 if flip {
-                    [k0 ^ *m1, k1 ^ *m0]
+                    [k1 ^ *m0, k0 ^ *m1]
                 } else {
                     [k0 ^ *m0, k1 ^ *m1]
                 }
             })
             .collect();
-
-        self.state.counter += msgs.len();
 
         Ok(SenderPayload { ciphertexts })
     }
@@ -319,17 +325,15 @@ pub mod state {
         pub(super) delta: Block,
         /// Receiver's rngs seeded from base OT
         pub(super) rngs: Vec<ChaCha20Rng>,
-        /// Sender's share of the extended OTs
-        pub(super) qs: Vec<Block>,
         /// Sender's keys
-        pub(super) keys: Vec<Block>,
-        /// Number of OT's sent so far
+        pub(super) keys: Vec<[Block; 2]>,
+        /// Number of OTs sent so far
         pub(super) counter: usize,
 
         /// Sender's unchecked qs
         pub(super) unchecked_qs: Vec<Block>,
         /// Sender's unchecked keys
-        pub(super) unchecked_keys: Vec<Block>,
+        pub(super) unchecked_keys: Vec<[Block; 2]>,
     }
 
     impl State for Extension {}

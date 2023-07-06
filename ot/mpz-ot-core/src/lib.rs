@@ -16,5 +16,4 @@
 
 pub mod chou_orlandi;
 pub mod kos;
-pub(crate) mod matrix;
 pub mod msgs;
