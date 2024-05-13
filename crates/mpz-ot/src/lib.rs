@@ -13,6 +13,7 @@ pub mod chou_orlandi;
 #[cfg(any(test, feature = "ideal"))]
 pub mod ideal;
 pub mod kos;
+pub mod ferret;
 
 use async_trait::async_trait;
 use mpz_common::Context;
