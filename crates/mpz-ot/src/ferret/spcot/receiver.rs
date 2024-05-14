@@ -16,7 +16,7 @@ use utils_aio::non_blocking_backend::{Backend, NonBlockingBackend};
 #[derive_err(Debug)]
 pub(crate) enum State {
     Initialized(ReceiverCore<state::Initialized>),
-    Extension(ReceiverCore<state::Extension>),
+    Extension(Box<ReceiverCore<state::Extension>>),
     Complete,
     Error,
 }
@@ -47,7 +47,7 @@ impl<RandomCOT: Send> Receiver<RandomCOT> {
             std::mem::replace(&mut self.state, State::Error).try_into_initialized()?;
 
         let ext_receiver = ext_receiver.setup();
-        self.state = State::Extension(ext_receiver);
+        self.state = State::Extension(Box::new(ext_receiver));
         Ok(())
     }
 
@@ -57,12 +57,12 @@ impl<RandomCOT: Send> Receiver<RandomCOT> {
     ///
     /// * `ctx` - The context.
     /// * `alpha`` - The chosen position.
-    /// * `count` - The number of SPCOTs to extend.
+    /// * `h` - The depth of GGM tree.
     pub async fn extend<Ctx: Context>(
         &mut self,
         ctx: &mut Ctx,
         alpha: u32,
-        count: usize,
+        h: usize,
     ) -> Result<(), ReceiverError>
     where
         RandomCOT: RandomCOTReceiver<Ctx, bool, Block>,
@@ -70,18 +70,11 @@ impl<RandomCOT: Send> Receiver<RandomCOT> {
         let mut ext_receiver =
             std::mem::replace(&mut self.state, State::Error).try_into_extension()?;
 
-        let h = count
-            .checked_next_power_of_two()
-            .expect("len should be less than usize::MAX / 2 - 1")
-            .ilog2() as usize;
-
         let RCOTReceiverOutput {
             choices: rs,
             msgs: ts,
             ..
-        } = self.rcot.receive_random_correlated(ctx, count).await?;
-
-        println!("receiver reaches here");
+        } = self.rcot.receive_random_correlated(ctx, h).await?;
 
         // extend
         let (mut ext_receiver, mask) = Backend::spawn(move || {
@@ -92,6 +85,7 @@ impl<RandomCOT: Send> Receiver<RandomCOT> {
         .await?;
 
         ctx.io_mut().send(mask).await?;
+
         let extendfs = ctx.io_mut().expect_next().await?;
 
         let ext_receiver = Backend::spawn(move || {
