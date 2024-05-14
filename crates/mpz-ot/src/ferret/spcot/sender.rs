@@ -1,4 +1,4 @@
-use crate::{ferret::spcot::error::SenderError, COTSender};
+use crate::{ferret::spcot::error::SenderError, RandomCOTSender};
 use enum_try_as_inner::EnumTryAsInner;
 use mpz_common::Context;
 use mpz_core::Block;
@@ -10,7 +10,7 @@ use mpz_ot_core::{
         },
         CSP,
     },
-    COTSenderOutput,
+    RCOTSenderOutput,
 };
 use serio::{stream::IoStreamExt, SinkExt};
 use utils_aio::non_blocking_backend::{Backend, NonBlockingBackend};
@@ -19,7 +19,7 @@ use utils_aio::non_blocking_backend::{Backend, NonBlockingBackend};
 #[derive_err(Debug)]
 pub(crate) enum State {
     Initialized(SenderCore<state::Initialized>),
-    Extension(SenderCore<state::Extension>),
+    Extension(Box<SenderCore<state::Extension>>),
     Complete,
     Error,
 }
@@ -55,7 +55,7 @@ impl<RandomCOT: Send> Sender<RandomCOT> {
 
         let ext_sender = ext_sender.setup(delta, seed);
 
-        self.state = State::Extension(ext_sender);
+        self.state = State::Extension(Box::new(ext_sender));
         Ok(())
     }
 
@@ -64,26 +64,15 @@ impl<RandomCOT: Send> Sender<RandomCOT> {
     /// # Arguments
     ///
     /// * `ctx` - The context.
-    /// * `count` - The number of SPCOTs to extend.
-    pub async fn extend<Ctx: Context>(
-        &mut self,
-        ctx: &mut Ctx,
-        count: usize,
-    ) -> Result<(), SenderError>
+    /// * `h` - The depth of GGM tree.
+    pub async fn extend<Ctx: Context>(&mut self, ctx: &mut Ctx, h: usize) -> Result<(), SenderError>
     where
-        RandomCOT: COTSender<Ctx, Block>,
+        RandomCOT: RandomCOTSender<Ctx, Block>,
     {
         let mut ext_sender =
             std::mem::replace(&mut self.state, State::Error).try_into_extension()?;
 
-        let h = count
-            .checked_next_power_of_two()
-            .expect("len should be less than usize::MAX / 2 - 1")
-            .ilog2() as usize;
-
-        let COTSenderOutput { msgs: qs, .. } = self.rcot.send_correlated(ctx, count).await?;
-
-        println!("sender reaches here");
+        let RCOTSenderOutput { msgs: qs, .. } = self.rcot.send_random_correlated(ctx, h).await?;
 
         let mask: MaskBits = ctx.io_mut().expect_next().await?;
 
@@ -112,13 +101,14 @@ impl<RandomCOT: Send> Sender<RandomCOT> {
         ctx: &mut Ctx,
     ) -> Result<Vec<Vec<Block>>, SenderError>
     where
-        RandomCOT: COTSender<Ctx, Block>,
+        RandomCOT: RandomCOTSender<Ctx, Block>,
     {
         let mut ext_sender =
             std::mem::replace(&mut self.state, State::Error).try_into_extension()?;
 
         // batch check
-        let COTSenderOutput { msgs: y_star, .. } = self.rcot.send_correlated(ctx, CSP).await?;
+        let RCOTSenderOutput { msgs: y_star, .. } =
+            self.rcot.send_random_correlated(ctx, CSP).await?;
 
         let checkfr = ctx.io_mut().expect_next().await?;
 
