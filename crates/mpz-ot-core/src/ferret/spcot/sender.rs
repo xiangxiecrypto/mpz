@@ -47,85 +47,125 @@ impl Sender {
 }
 
 impl Sender<state::Extension> {
-    /// Performs the SPCOT extension.
+    /// Performs batch SPCOT extension.
     ///
     /// See Step 1-5 in Figure 6.
     ///
     /// # Arguments
     ///
-    /// * `h` - The depth of the GGM tree.
-    /// * `qs`- The blocks received by calling the COT functionality.
-    /// * `mask`- The mask bits sent by the receiver.
+    /// * `hs` - The depths of the GGM trees.
+    /// * `qss`- The blocks received by calling the COT functionality for hs trees.
+    /// * `masks`- The vector of mask bits sent by the receiver.
     pub fn extend(
         &mut self,
-        h: usize,
-        qs: &[Block],
-        mask: MaskBits,
-    ) -> Result<ExtendFromSender, SenderError> {
+        hs: &[usize],
+        qss: &[Block],
+        masks: &[MaskBits],
+    ) -> Result<Vec<ExtendFromSender>, SenderError> {
         if self.state.extended {
             return Err(SenderError::InvalidState(
                 "extension is not allowed".to_string(),
             ));
         }
 
-        if qs.len() != h {
+        let h_sum = hs.iter().sum();
+
+        if qss.len() != h_sum {
             return Err(SenderError::InvalidLength(
-                "the length of q should be h".to_string(),
+                "the length of qss should be the sum of h".to_string(),
             ));
         }
 
-        let MaskBits { bs } = mask;
+        let mut qs_s = vec![Vec::<Block>::new(); hs.len()];
+        let mut qss_vec = qss.to_vec();
+        for (index, h) in hs.iter().enumerate() {
+            qs_s[index] = qss_vec.drain(0..*h).collect();
+        }
 
-        if bs.len() != h {
+        if masks.len() != hs.len() {
+            return Err(SenderError::InvalidLength(
+                "the length of masks should be the length of hs".to_string(),
+            ));
+        }
+
+        let bss: Vec<Vec<bool>> = masks.iter().map(|m| m.clone().bs).collect();
+
+        if bss.iter().zip(hs.iter()).any(|(b, h)| b.len() != *h) {
             return Err(SenderError::InvalidLength(
                 "the length of b should be h".to_string(),
             ));
         }
 
         // Updates hasher.
-        self.state.hasher.update(&bs.to_bytes());
+        self.state.hasher.update(&bss.to_bytes());
 
         // Step 3-4, Figure 6.
 
         // Generates a GGM tree with depth h and seed s.
-        let s = self.state.prg.random_block();
-        let ggm_tree = GgmTree::new(h);
-        let mut k0 = vec![Block::ZERO; h];
-        let mut k1 = vec![Block::ZERO; h];
-        let mut tree = vec![Block::ZERO; 1 << h];
-        ggm_tree.gen(s, &mut tree, &mut k0, &mut k1);
+        let mut trees = vec![Vec::<Block>::new(); hs.len()];
+        let mut ms_s = vec![Vec::<[Block; 2]>::new(); hs.len()];
+        let mut sum_s = vec![Block::ZERO; hs.len()];
+
+        let iter = trees
+            .iter_mut()
+            .zip(hs.iter())
+            .zip(qs_s.iter())
+            .zip(bss.iter())
+            .zip(ms_s.iter_mut())
+            .zip(sum_s.iter_mut())
+            .map(|(((((tree, h), qs), bs), ms), sum)| (tree, h, qs, bs, ms, sum));
+
+        iter.for_each(|(tree, h, qs, bs, ms, sum)| {
+            let s = self.state.prg.random_block();
+            let ggm_tree = GgmTree::new(*h);
+            let mut k0 = vec![Block::ZERO; *h];
+            let mut k1 = vec![Block::ZERO; *h];
+            *tree = vec![Block::ZERO; 1 << h];
+            ggm_tree.gen(s, tree, &mut k0, &mut k1);
+
+            // Computes the sum of the leaves and delta.
+            *sum = tree.iter().fold(self.state.delta, |acc, &x| acc ^ x);
+
+            // Computes M0 and M1.
+            for (((i, &q), b), (k0, k1)) in
+                qs.iter().enumerate().zip(bs).zip(k0.into_iter().zip(k1))
+            {
+                let mut m = if *b {
+                    [q ^ self.state.delta, q]
+                } else {
+                    [q, q ^ self.state.delta]
+                };
+                let tweak: Block = bytemuck::cast([i, self.state.exec_counter]);
+                FIXED_KEY_AES.tccr_many(&[tweak, tweak], &mut m);
+                m[0] ^= k0;
+                m[1] ^= k1;
+                ms.push(m);
+            }
+        });
 
         // Stores the tree, i.e., the possible output of sender.
-        self.state.unchecked_vs.extend_from_slice(&tree);
+        for tree in trees {
+            self.state.unchecked_vs.extend_from_slice(&tree);
+        }
 
         // Stores the length of this extension.
-        self.state.vs_length.push(1 << h);
-
-        // Computes the sum of the leaves and delta.
-        let sum = tree.iter().fold(self.state.delta, |acc, &x| acc ^ x);
-
-        // Computes M0 and M1.
-        let mut ms: Vec<[Block; 2]> = Vec::with_capacity(qs.len());
-        for (((i, &q), b), (k0, k1)) in qs.iter().enumerate().zip(bs).zip(k0.into_iter().zip(k1)) {
-            let mut m = if b {
-                [q ^ self.state.delta, q]
-            } else {
-                [q, q ^ self.state.delta]
-            };
-            let tweak: Block = bytemuck::cast([i, self.state.exec_counter]);
-            FIXED_KEY_AES.tccr_many(&[tweak, tweak], &mut m);
-            m[0] ^= k0;
-            m[1] ^= k1;
-            ms.push(m);
+        for h in hs {
+            self.state.vs_length.push(1 << h);
         }
 
         // Updates hasher
-        self.state.hasher.update(&ms.to_bytes());
-        self.state.hasher.update(&sum.to_bytes());
+        self.state.hasher.update(&ms_s.to_bytes());
+        self.state.hasher.update(&sum_s.to_bytes());
 
-        self.state.exec_counter += 1;
+        self.state.exec_counter += hs.len();
 
-        Ok(ExtendFromSender { ms, sum })
+        let res: Vec<ExtendFromSender> = ms_s
+            .into_iter()
+            .zip(sum_s.into_iter())
+            .map(|(ms, sum)| ExtendFromSender { ms, sum })
+            .collect();
+
+        Ok(res)
     }
 
     /// Performs the consistency check for the resulting COTs.
