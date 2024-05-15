@@ -49,11 +49,10 @@ impl<RandomCOT: Send> Sender<RandomCOT> {
     /// # Arguments
     ///
     /// * `delta` - The delta value to use for OT extension.
-    /// * `seed` - The random seed to generate PRG
-    pub fn setup_with_delta(&mut self, delta: Block, seed: Block) -> Result<(), SenderError> {
+    pub fn setup_with_delta(&mut self, delta: Block) -> Result<(), SenderError> {
         let ext_sender = std::mem::replace(&mut self.state, State::Error).try_into_initialized()?;
 
-        let ext_sender = ext_sender.setup(delta, seed);
+        let ext_sender = ext_sender.setup(delta);
 
         self.state = State::Extension(Box::new(ext_sender));
         Ok(())
@@ -64,22 +63,28 @@ impl<RandomCOT: Send> Sender<RandomCOT> {
     /// # Arguments
     ///
     /// * `ctx` - The context.
-    /// * `h` - The depth of GGM tree.
-    pub async fn extend<Ctx: Context>(&mut self, ctx: &mut Ctx, h: usize) -> Result<(), SenderError>
+    /// * `hs` - The depths of GGM trees.
+    pub async fn extend<Ctx: Context>(
+        &mut self,
+        ctx: &mut Ctx,
+        hs: &[usize],
+    ) -> Result<(), SenderError>
     where
         RandomCOT: RandomCOTSender<Ctx, Block>,
     {
         let mut ext_sender =
             std::mem::replace(&mut self.state, State::Error).try_into_extension()?;
 
-        let RCOTSenderOutput { msgs: qs, .. } = self.rcot.send_random_correlated(ctx, h).await?;
+        let h = hs.iter().sum();
+        let RCOTSenderOutput { msgs: qss, .. } = self.rcot.send_random_correlated(ctx, h).await?;
 
-        let mask: MaskBits = ctx.io_mut().expect_next().await?;
+        let masks: Vec<MaskBits> = ctx.io_mut().expect_next().await?;
 
         // extend
+        let h_in = hs.to_vec();
         let (ext_sender, extend_msg) = Backend::spawn(move || {
             ext_sender
-                .extend(h, &qs, mask)
+                .extend(&h_in, &qss, &masks)
                 .map(|extend_msg| (ext_sender, extend_msg))
         })
         .await?;

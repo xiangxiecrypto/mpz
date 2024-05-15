@@ -7,8 +7,6 @@ pub mod sender;
 
 #[cfg(test)]
 mod tests {
-    use mpz_core::prg::Prg;
-
     use super::{receiver::Receiver as SpcotReceiver, sender::Sender as SpcotSender};
     use crate::{ferret::CSP, ideal::cot::IdealCOT, RCOTReceiverOutput, RCOTSenderOutput};
 
@@ -18,11 +16,9 @@ mod tests {
         let sender = SpcotSender::new();
         let receiver = SpcotReceiver::new();
 
-        let mut prg = Prg::new();
-        let sender_seed = prg.random_block();
         let delta = ideal_cot.delta();
 
-        let mut sender = sender.setup(delta, sender_seed);
+        let mut sender = sender.setup(delta);
         let mut receiver = receiver.setup();
 
         let hs = [8, 4, 10];

@@ -17,7 +17,7 @@ mod tests {
     };
     use futures::TryFutureExt;
     use mpz_common::executor::test_st_executor;
-    use mpz_core::{prg::Prg, Block};
+    use mpz_core::Block;
 
     fn setup() -> (Sender<IdealCOTSender>, Receiver<IdealCOTReceiver>, Block) {
         let (mut rcot_sender, rcot_receiver) = ideal_rcot();
@@ -37,29 +37,16 @@ mod tests {
         let (mut sender, mut receiver, delta) = setup();
 
         // shold set the same delta as in RCOT.
-        let seed = Prg::new().random_block();
-
-        sender.setup_with_delta(delta, seed).unwrap();
+        sender.setup_with_delta(delta).unwrap();
         receiver.setup().unwrap();
 
-        let h = 8;
-        let alpha = 3;
+        let hs = [8, 4];
+        let alphas = [4, 2];
 
         tokio::try_join!(
-            sender.extend(&mut ctx_sender, h).map_err(OTError::from),
+            sender.extend(&mut ctx_sender, &hs).map_err(OTError::from),
             receiver
-                .extend(&mut ctx_receiver, alpha, h)
-                .map_err(OTError::from)
-        )
-        .unwrap();
-
-        let h = 4;
-        let alpha = 2;
-
-        tokio::try_join!(
-            sender.extend(&mut ctx_sender, h).map_err(OTError::from),
-            receiver
-                .extend(&mut ctx_receiver, alpha, h)
+                .extend(&mut ctx_receiver, &alphas, &hs)
                 .map_err(OTError::from)
         )
         .unwrap();

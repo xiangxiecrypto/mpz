@@ -4,7 +4,10 @@ use mpz_common::Context;
 use mpz_core::Block;
 use mpz_ot_core::{
     ferret::{
-        spcot::receiver::{state, Receiver as ReceiverCore},
+        spcot::{
+            msgs::ExtendFromSender,
+            receiver::{state, Receiver as ReceiverCore},
+        },
         CSP,
     },
     RCOTReceiverOutput,
@@ -56,13 +59,13 @@ impl<RandomCOT: Send> Receiver<RandomCOT> {
     /// # Arguments
     ///
     /// * `ctx` - The context.
-    /// * `alpha`` - The chosen position.
+    /// * `alphas`` - The vector of chosen positions.
     /// * `h` - The depth of GGM tree.
     pub async fn extend<Ctx: Context>(
         &mut self,
         ctx: &mut Ctx,
-        alpha: u32,
-        h: usize,
+        alphas: &[u32],
+        hs: &[usize],
     ) -> Result<(), ReceiverError>
     where
         RandomCOT: RandomCOTReceiver<Ctx, bool, Block>,
@@ -70,27 +73,32 @@ impl<RandomCOT: Send> Receiver<RandomCOT> {
         let mut ext_receiver =
             std::mem::replace(&mut self.state, State::Error).try_into_extension()?;
 
+        let h = hs.iter().sum();
         let RCOTReceiverOutput {
-            choices: rs,
-            msgs: ts,
+            choices: rss,
+            msgs: tss,
             ..
         } = self.rcot.receive_random_correlated(ctx, h).await?;
 
         // extend
-        let (mut ext_receiver, mask) = Backend::spawn(move || {
+        let h_in = hs.to_vec();
+        let alphas_in = alphas.to_vec();
+        let (mut ext_receiver, masks) = Backend::spawn(move || {
             ext_receiver
-                .extend_mask_bits(h, alpha, &rs)
+                .extend_mask_bits(&h_in, &alphas_in, &rss)
                 .map(|mask| (ext_receiver, mask))
         })
         .await?;
 
-        ctx.io_mut().send(mask).await?;
+        ctx.io_mut().send(masks).await?;
 
-        let extendfs = ctx.io_mut().expect_next().await?;
+        let extendfss: Vec<ExtendFromSender> = ctx.io_mut().expect_next().await?;
 
+        let h_in = hs.to_vec();
+        let alphas_in = alphas.to_vec();
         let ext_receiver = Backend::spawn(move || {
             ext_receiver
-                .extend(h, alpha, &ts, extendfs)
+                .extend(&h_in, &alphas_in, &tss, &extendfss)
                 .map(|_| ext_receiver)
         })
         .await?;
