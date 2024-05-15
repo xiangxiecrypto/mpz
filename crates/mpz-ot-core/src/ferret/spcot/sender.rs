@@ -5,6 +5,9 @@ use mpz_core::{
     utils::blake3, Block,
 };
 use rand_core::SeedableRng;
+use rayon::iter::{
+    IndexedParallelIterator, IntoParallelRefIterator, IntoParallelRefMutIterator, ParallelIterator,
+};
 
 use super::msgs::{CheckFromReceiver, CheckFromSender, ExtendFromSender, MaskBits};
 
@@ -29,8 +32,7 @@ impl Sender {
     /// # Arguments
     ///
     /// * `delta` - The sender's global secret.
-    /// * `seed`  - The random seed to generate PRG.
-    pub fn setup(self, delta: Block, seed: Block) -> Sender<state::Extension> {
+    pub fn setup(self, delta: Block) -> Sender<state::Extension> {
         Sender {
             state: state::Extension {
                 delta,
@@ -39,7 +41,6 @@ impl Sender {
                 cot_counter: 0,
                 exec_counter: 0,
                 extended: false,
-                prg: Prg::from_seed(seed),
                 hasher: blake3::Hasher::new(),
             },
         }
@@ -106,17 +107,29 @@ impl Sender<state::Extension> {
         let mut ms_s = vec![Vec::<[Block; 2]>::new(); hs.len()];
         let mut sum_s = vec![Block::ZERO; hs.len()];
 
-        let iter = trees
-            .iter_mut()
-            .zip(hs.iter())
-            .zip(qs_s.iter())
-            .zip(bss.iter())
-            .zip(ms_s.iter_mut())
-            .zip(sum_s.iter_mut())
-            .map(|(((((tree, h), qs), bs), ms), sum)| (tree, h, qs, bs, ms, sum));
+        cfg_if::cfg_if! {
+            if #[cfg(feature = "rayon")]{
+                let iter = trees
+                .par_iter_mut().zip(hs.par_iter())
+                .zip(qs_s.par_iter())
+                .zip(bss.par_iter())
+                .zip(ms_s.par_iter_mut())
+                .zip(sum_s.par_iter_mut())
+                .map(|(((((tree, h), qs), bs), ms), sum)| (tree, h, qs, bs, ms, sum));
+            }else{
+                let iter = trees
+                .iter_mut()
+                .zip(hs.iter())
+                .zip(qs_s.iter())
+                .zip(bss.iter())
+                .zip(ms_s.iter_mut())
+                .zip(sum_s.iter_mut())
+                .map(|(((((tree, h), qs), bs), ms), sum)| (tree, h, qs, bs, ms, sum));
+            }
+        }
 
         iter.for_each(|(tree, h, qs, bs, ms, sum)| {
-            let s = self.state.prg.random_block();
+            let s = Prg::new().random_block();
             let ggm_tree = GgmTree::new(*h);
             let mut k0 = vec![Block::ZERO; *h];
             let mut k1 = vec![Block::ZERO; *h];
@@ -161,8 +174,8 @@ impl Sender<state::Extension> {
 
         let res: Vec<ExtendFromSender> = ms_s
             .into_iter()
-            .zip(sum_s.into_iter())
-            .map(|(ms, sum)| ExtendFromSender { ms, sum })
+            .zip(sum_s.iter())
+            .map(|(ms, &sum)| ExtendFromSender { ms, sum })
             .collect();
 
         Ok(res)
@@ -279,8 +292,6 @@ pub mod state {
         /// This is to prevent the receiver from extending twice
         pub(super) extended: bool,
 
-        /// A PRG to generate random strings.
-        pub(super) prg: Prg,
         /// A hasher to generate chi seed.
         pub(super) hasher: blake3::Hasher,
     }

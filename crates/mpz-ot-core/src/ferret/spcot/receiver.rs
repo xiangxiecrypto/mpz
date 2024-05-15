@@ -6,6 +6,9 @@ use mpz_core::{
     utils::blake3, Block,
 };
 use rand_core::SeedableRng;
+use rayon::iter::{
+    IndexedParallelIterator, IntoParallelRefIterator, IntoParallelRefMutIterator, ParallelIterator,
+};
 
 use super::msgs::{CheckFromReceiver, CheckFromSender, ExtendFromSender, MaskBits};
 
@@ -200,21 +203,34 @@ impl Receiver<state::Extension> {
 
         let mut trees = vec![Vec::<Block>::new(); hs.len()];
 
-        let iter = alphas
-            .iter()
-            .zip(ms_s.iter())
-            .zip(sum_s.iter())
-            .zip(hs.iter())
-            .zip(ts_s.iter())
-            .zip(trees.iter_mut())
-            .map(|(((((alpha, ms), sum), h), ts), tree)| (alpha, ms, sum, h, ts, tree));
+        cfg_if::cfg_if! {
+            if #[cfg(feature = "rayon")]{
+                let iter = alphas
+                .par_iter()
+                .zip(ms_s.par_iter())
+                .zip(sum_s.par_iter())
+                .zip(hs.par_iter())
+                .zip(ts_s.par_iter())
+                .zip(trees.par_iter_mut())
+                .map(|(((((alpha, ms), sum), h), ts), tree)| (alpha, ms, sum, h, ts, tree));
+            }else{
+                let iter = alphas
+                .iter()
+                .zip(ms_s.iter())
+                .zip(sum_s.iter())
+                .zip(hs.iter())
+                .zip(ts_s.iter())
+                .zip(trees.iter_mut())
+                .map(|(((((alpha, ms), sum), h), ts), tree)| (alpha, ms, sum, h, ts, tree));
+            }
+        }
 
         iter.for_each(|(alpha, ms, sum, h, ts, tree)| {
             let alpha_bar_vec: Vec<bool> = alpha.iter_msb0().skip(32 - h).map(|a| !a).collect();
 
             // Step 5 in Figure 6.
             let k: Vec<Block> = ms
-                .into_iter()
+                .iter()
                 .zip(ts)
                 .zip(alpha_bar_vec.iter())
                 .enumerate()
@@ -251,7 +267,7 @@ impl Receiver<state::Extension> {
 
         Ok(())
     }
-    
+
     /// Performs the decomposition and bit-mask steps in check.
     ///
     /// See step 7 in Figure 6.
