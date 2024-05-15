@@ -25,42 +25,28 @@ mod tests {
         let mut sender = sender.setup(delta, sender_seed);
         let mut receiver = receiver.setup();
 
-        let h1 = 8;
-        let alpha1 = 3;
+        let hs = [8, 4, 10];
+        let alphas = [3, 2, 4];
 
-        // Extend once
-        let (msg_for_sender, msg_for_receiver) = ideal_cot.random_correlated(h1);
-
-        let RCOTReceiverOutput {
-            choices: rs,
-            msgs: ts,
-            ..
-        } = msg_for_receiver;
-        let RCOTSenderOutput { msgs: qs, .. } = msg_for_sender;
-        let maskbits = receiver.extend_mask_bits(h1, alpha1, &rs).unwrap();
-
-        let msg_from_sender = sender.extend(h1, &qs, maskbits).unwrap();
-
-        receiver.extend(h1, alpha1, &ts, msg_from_sender).unwrap();
-
-        // Extend twice
-        let h2 = 4;
-        let alpha2 = 2;
-
-        let (msg_for_sender, msg_for_receiver) = ideal_cot.random_correlated(h2);
+        let h_sum = hs.iter().sum();
+        // batch extension
+        let (msg_for_sender, msg_for_receiver) = ideal_cot.random_correlated(h_sum);
 
         let RCOTReceiverOutput {
-            choices: rs,
-            msgs: ts,
+            choices: rss,
+            msgs: tss,
             ..
         } = msg_for_receiver;
-        let RCOTSenderOutput { msgs: qs, .. } = msg_for_sender;
 
-        let maskbits = receiver.extend_mask_bits(h2, alpha2, &rs).unwrap();
+        let RCOTSenderOutput { msgs: qss, .. } = msg_for_sender;
 
-        let msg_from_sender = sender.extend(h2, &qs, maskbits).unwrap();
+        let maskbits = receiver.extend_mask_bits(&hs, &alphas, &rss).unwrap();
 
-        receiver.extend(h2, alpha2, &ts, msg_from_sender).unwrap();
+        let msg_from_sender = sender.extend(&hs, &qss, &maskbits).unwrap();
+
+        receiver
+            .extend(&hs, &alphas, &tss, &msg_from_sender)
+            .unwrap();
 
         // Check
         let (msg_for_sender, msg_for_receiver) = ideal_cot.random_correlated(CSP);
