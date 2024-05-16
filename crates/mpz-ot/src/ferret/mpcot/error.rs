@@ -81,8 +81,8 @@ impl From<SenderRegularError> for OTError {
     }
 }
 
-impl From<crate::ferret::mpcot::sender::StateError> for SenderRegularError {
-    fn from(err: crate::ferret::mpcot::sender::StateError) -> Self {
+impl From<crate::ferret::mpcot::sender_regular::StateError> for SenderRegularError {
+    fn from(err: crate::ferret::mpcot::sender_regular::StateError) -> Self {
         SenderRegularError::StateError(err.to_string())
     }
 }
