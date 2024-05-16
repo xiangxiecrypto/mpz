@@ -47,7 +47,14 @@ pub fn ideal_rcot() -> (IdealCOTSender, IdealCOTReceiver) {
 
 /// Ideal OT sender.
 #[derive(Debug, Clone)]
-pub struct IdealCOTSender(pub Alice<IdealCOT>);
+pub struct IdealCOTSender(Alice<IdealCOT>);
+
+impl IdealCOTSender {
+    /// Returns Alice.
+    pub fn alice(&mut self) -> &mut Alice<IdealCOT> {
+        &mut self.0
+    }
+}
 
 #[async_trait]
 impl<Ctx> OTSetup<Ctx> for IdealCOTSender

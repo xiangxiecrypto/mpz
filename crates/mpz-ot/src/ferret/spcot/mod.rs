@@ -22,7 +22,7 @@ mod tests {
     fn setup() -> (Sender<IdealCOTSender>, Receiver<IdealCOTReceiver>, Block) {
         let (mut rcot_sender, rcot_receiver) = ideal_rcot();
 
-        let delta = rcot_sender.0.get_mut().delta();
+        let delta = rcot_sender.alice().get_mut().delta();
 
         let sender = Sender::new(rcot_sender);
         let receiver = Receiver::new(rcot_receiver);
