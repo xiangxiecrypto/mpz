@@ -15,12 +15,12 @@ pub(crate) enum State {
 
 /// MPCOT regular sender.
 #[derive(Debug)]
-pub struct Sender<RandomCOT> {
+pub struct SenderRegular<RandomCOT> {
     state: State,
     spcot: SpcotSender<RandomCOT>,
 }
 
-impl<RandomCOT: Send> Sender<RandomCOT> {
+impl<RandomCOT: Send> SenderRegular<RandomCOT> {
     /// Creates a new Sender.
     ///
     /// # Arguments
@@ -39,7 +39,8 @@ impl<RandomCOT: Send> Sender<RandomCOT> {
     ///
     /// `delta` - The delta value to use for OT extension.
     pub fn setup_with_delta(&mut self, delta: Block) -> Result<(), SenderRegularError> {
-        // let ext_sender = std::mem::replace(&mut self.state, State::Error).try_into_initialized()?;
+        let ext_sender = std::mem::replace(&mut self.state, State::Error).try_into_initialized()?;
+        
         Ok(())
     }
 }

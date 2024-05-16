@@ -9,7 +9,7 @@ mod sender_regular;
 pub use error::{ReceiverError, SenderError};
 pub use receiver::Receiver;
 pub use sender::Sender;
-pub use sender_regular::Sender as SenderRegular;
+pub use sender_regular::SenderRegular;
 
 #[cfg(test)]
 mod tests {
