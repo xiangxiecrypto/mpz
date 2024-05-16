@@ -19,13 +19,13 @@ impl Receiver {
     }
 
     /// Completes the setup phase of the protocol.
-    pub fn setup(self) -> Receiver<state::PreExtension> {
+    pub fn setup(self) -> Receiver<state::Extension> {
         Receiver {
-            state: state::PreExtension { counter: 0 },
+            state: state::Extension { counter: 0 },
         }
     }
 }
-impl Receiver<state::PreExtension> {
+impl Receiver<state::Extension> {
     /// Performs the prepare procedure in MPCOT extension.
     /// Outputs the indices for SPCOT.
     ///
@@ -38,7 +38,7 @@ impl Receiver<state::PreExtension> {
         self,
         alphas: &[u32],
         n: u32,
-    ) -> Result<(Receiver<state::Extension>, Vec<(usize, u32)>), ReceiverError> {
+    ) -> Result<(Receiver<state::ExtensionInternal>, Vec<(usize, u32)>), ReceiverError> {
         let t = alphas.len() as u32;
         if t > n {
             return Err(ReceiverError::InvalidInput(
@@ -91,7 +91,7 @@ impl Receiver<state::PreExtension> {
             .collect();
 
         let receiver = Receiver {
-            state: state::Extension {
+            state: state::ExtensionInternal {
                 counter: self.state.counter,
                 n,
                 queries_length,
@@ -103,7 +103,7 @@ impl Receiver<state::PreExtension> {
     }
 }
 
-impl Receiver<state::Extension> {
+impl Receiver<state::ExtensionInternal> {
     /// Performs MPCOT extension.
     ///
     /// # Arguments.
@@ -112,7 +112,7 @@ impl Receiver<state::Extension> {
     pub fn extend(
         self,
         rt: &[Vec<Block>],
-    ) -> Result<(Receiver<state::PreExtension>, Vec<Block>), ReceiverError> {
+    ) -> Result<(Receiver<state::Extension>, Vec<Block>), ReceiverError> {
         if rt
             .iter()
             .zip(self.state.queries_depth.iter())
@@ -130,7 +130,7 @@ impl Receiver<state::Extension> {
         }
 
         let receiver = Receiver {
-            state: state::PreExtension {
+            state: state::Extension {
                 counter: self.state.counter + 1,
             },
         };
@@ -145,8 +145,8 @@ pub mod state {
         pub trait Sealed {}
 
         impl Sealed for super::Initialized {}
-        impl Sealed for super::PreExtension {}
         impl Sealed for super::Extension {}
+        impl Sealed for super::ExtensionInternal {}
     }
 
     /// The receiver's state.
@@ -162,19 +162,19 @@ pub mod state {
     /// The receiver's state before extending.
     ///
     /// In this state the receiver performs pre extension in MPCOT (potentially multiple times).
-    pub struct PreExtension {
+    pub struct Extension {
         /// Current MPCOT counter
         pub(super) counter: usize,
     }
 
-    impl State for PreExtension {}
+    impl State for Extension {}
 
-    opaque_debug::implement!(PreExtension);
+    opaque_debug::implement!(Extension);
 
     /// The receiver's state after the setup phase.
     ///
     /// In this state the receiver performs MPCOT extension (potentially multiple times).
-    pub struct Extension {
+    pub struct ExtensionInternal {
         /// Current MPCOT counter
         #[allow(dead_code)]
         pub(super) counter: usize,
@@ -186,7 +186,7 @@ pub mod state {
         pub(super) queries_depth: Vec<usize>,
     }
 
-    impl State for Extension {}
+    impl State for ExtensionInternal {}
 
-    opaque_debug::implement!(Extension);
+    opaque_debug::implement!(ExtensionInternal);
 }

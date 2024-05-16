@@ -2,11 +2,14 @@
 
 mod error;
 mod receiver;
+mod receiver_regular;
 mod sender;
+mod sender_regular;
 
 pub use error::{ReceiverError, SenderError};
 pub use receiver::Receiver;
 pub use sender::Sender;
+pub use sender_regular::Sender as SenderRegular;
 
 #[cfg(test)]
 mod tests {
