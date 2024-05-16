@@ -23,14 +23,14 @@ impl Sender {
     /// # Argument.
     ///
     /// * `delta` - The sender's global secret.
-    pub fn setup(self, delta: Block) -> Sender<state::PreExtension> {
+    pub fn setup(self, delta: Block) -> Sender<state::Extension> {
         Sender {
-            state: state::PreExtension { delta, counter: 0 },
+            state: state::Extension { delta, counter: 0 },
         }
     }
 }
 
-impl Sender<state::PreExtension> {
+impl Sender<state::Extension> {
     /// Performs the prepare procedure in MPCOT extension.
     /// Outputs the information for SPCOT.
     ///
@@ -42,7 +42,7 @@ impl Sender<state::PreExtension> {
         self,
         t: u32,
         n: u32,
-    ) -> Result<(Sender<state::Extension>, Vec<usize>), SenderError> {
+    ) -> Result<(Sender<state::ExtensionInternal>, Vec<usize>), SenderError> {
         if t > n {
             return Err(SenderError::InvalidInput(
                 "t should not exceed n".to_string(),
@@ -78,7 +78,7 @@ impl Sender<state::PreExtension> {
         }
 
         let sender = Sender {
-            state: state::Extension {
+            state: state::ExtensionInternal {
                 delta: self.state.delta,
                 counter: self.state.counter,
                 n,
@@ -91,7 +91,7 @@ impl Sender<state::PreExtension> {
     }
 }
 
-impl Sender<state::Extension> {
+impl Sender<state::ExtensionInternal> {
     /// Performs MPCOT extension.
     ///
     /// # Arguments.
@@ -100,7 +100,7 @@ impl Sender<state::Extension> {
     pub fn extend(
         self,
         st: &[Vec<Block>],
-    ) -> Result<(Sender<state::PreExtension>, Vec<Block>), SenderError> {
+    ) -> Result<(Sender<state::Extension>, Vec<Block>), SenderError> {
         if st
             .iter()
             .zip(self.state.queries_depth.iter())
@@ -117,7 +117,7 @@ impl Sender<state::Extension> {
         }
 
         let sender = Sender {
-            state: state::PreExtension {
+            state: state::Extension {
                 delta: self.state.delta,
                 counter: self.state.counter + 1,
             },
@@ -135,8 +135,8 @@ pub mod state {
         pub trait Sealed {}
 
         impl Sealed for super::Initialized {}
-        impl Sealed for super::PreExtension {}
         impl Sealed for super::Extension {}
+        impl Sealed for super::ExtensionInternal {}
     }
 
     /// The sender's state.
@@ -153,20 +153,20 @@ pub mod state {
     /// The sender's state before extending.
     ///
     /// In this state the sender performs pre extension in MPCOT (potentially multiple times).
-    pub struct PreExtension {
+    pub struct Extension {
         /// Sender's global secret.
         pub(super) delta: Block,
         /// Current MPCOT counter
         pub(super) counter: usize,
     }
 
-    impl State for PreExtension {}
-    opaque_debug::implement!(PreExtension);
+    impl State for Extension {}
+    opaque_debug::implement!(Extension);
 
     /// The sender's state after the setup phase.
     ///
     /// In this state the sender performs MPCOT extension (potentially multiple times).
-    pub struct Extension {
+    pub struct ExtensionInternal {
         /// Sender's global secret.
         pub(super) delta: Block,
         /// Current MPCOT counter
@@ -179,7 +179,7 @@ pub mod state {
         pub(super) queries_depth: Vec<usize>,
     }
 
-    impl State for Extension {}
+    impl State for ExtensionInternal {}
 
-    opaque_debug::implement!(Extension);
+    opaque_debug::implement!(ExtensionInternal);
 }

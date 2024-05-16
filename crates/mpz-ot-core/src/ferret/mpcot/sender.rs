@@ -31,12 +31,12 @@ impl Sender {
     ///
     /// * `delta` - The sender's global secret.
     /// * `hash_seed` - The seed for Cuckoo hash sent by the receiver.
-    pub fn setup(self, delta: Block, hash_seed: HashSeed) -> Sender<state::PreExtension> {
+    pub fn setup(self, delta: Block, hash_seed: HashSeed) -> Sender<state::Extension> {
         let HashSeed { seed: hash_seed } = hash_seed;
         let mut prg = Prg::from_seed(hash_seed);
         let hashes = std::array::from_fn(|_| AesEncryptor::new(prg.random_block()));
         Sender {
-            state: state::PreExtension {
+            state: state::Extension {
                 delta,
                 counter: 0,
                 hashes: Arc::new(hashes),
@@ -45,7 +45,7 @@ impl Sender {
     }
 }
 
-impl Sender<state::PreExtension> {
+impl Sender<state::Extension> {
     /// Performs the hash procedure in MPCOT extension.
     /// Outputs the length of each bucket plus 1.
     ///
@@ -59,7 +59,7 @@ impl Sender<state::PreExtension> {
         self,
         t: u32,
         n: u32,
-    ) -> Result<(Sender<state::Extension>, Vec<usize>), SenderError> {
+    ) -> Result<(Sender<state::ExtensionInternal>, Vec<usize>), SenderError> {
         if t > n {
             return Err(SenderError::InvalidInput(
                 "t should not exceed n".to_string(),
@@ -86,7 +86,7 @@ impl Sender<state::PreExtension> {
         }
 
         let sender = Sender {
-            state: state::Extension {
+            state: state::ExtensionInternal {
                 delta: self.state.delta,
                 counter: self.state.counter,
                 m,
@@ -101,7 +101,7 @@ impl Sender<state::PreExtension> {
     }
 }
 
-impl Sender<state::Extension> {
+impl Sender<state::ExtensionInternal> {
     /// Performs MPCOT extension.
     ///
     /// See Step 5 in Figure 7.
@@ -112,7 +112,7 @@ impl Sender<state::Extension> {
     pub fn extend(
         self,
         st: &[Vec<Block>],
-    ) -> Result<(Sender<state::PreExtension>, Vec<Block>), SenderError> {
+    ) -> Result<(Sender<state::Extension>, Vec<Block>), SenderError> {
         if st.len() != self.state.m {
             return Err(SenderError::InvalidInput(
                 "the length st should be m".to_string(),
@@ -147,7 +147,7 @@ impl Sender<state::Extension> {
         }
 
         let sender = Sender {
-            state: state::PreExtension {
+            state: state::Extension {
                 delta: self.state.delta,
                 counter: self.state.counter + 1,
                 hashes: self.state.hashes,
@@ -166,8 +166,8 @@ pub mod state {
         pub trait Sealed {}
 
         impl Sealed for super::Initialized {}
-        impl Sealed for super::PreExtension {}
         impl Sealed for super::Extension {}
+        impl Sealed for super::ExtensionInternal {}
     }
 
     /// The sender's state.
@@ -184,7 +184,7 @@ pub mod state {
     /// The sender's state before extending.
     ///
     /// In this state the sender performs pre extension in MPCOT (potentially multiple times).
-    pub struct PreExtension {
+    pub struct Extension {
         /// Sender's global secret.
         pub(super) delta: Block,
         /// Current MPCOT counter
@@ -193,13 +193,13 @@ pub mod state {
         pub(super) hashes: Arc<[AesEncryptor; CUCKOO_HASH_NUM]>,
     }
 
-    impl State for PreExtension {}
-    opaque_debug::implement!(PreExtension);
+    impl State for Extension {}
+    opaque_debug::implement!(Extension);
 
     /// The sender's state of extension.
     ///
     /// In this state the sender performs MPCOT extension (potentially multiple times).
-    pub struct Extension {
+    pub struct ExtensionInternal {
         /// Sender's global secret.
         pub(super) delta: Block,
         /// Current MPCOT counter
@@ -217,7 +217,7 @@ pub mod state {
         pub(super) buckets_length: Vec<usize>,
     }
 
-    impl State for Extension {}
+    impl State for ExtensionInternal {}
 
-    opaque_debug::implement!(Extension);
+    opaque_debug::implement!(ExtensionInternal);
 }

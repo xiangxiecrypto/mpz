@@ -57,3 +57,32 @@ impl From<crate::ferret::mpcot::receiver::StateError> for ReceiverError {
         ReceiverError::StateError(err.to_string())
     }
 }
+
+/// A MPCOT regular sender error.
+#[derive(Debug, thiserror::Error)]
+#[allow(missing_docs)]
+pub enum SenderRegularError {
+    #[error(transparent)]
+    IOError(#[from] std::io::Error),
+    #[error(transparent)]
+    CoreError(#[from] mpz_ot_core::ferret::mpcot::error::SenderError),
+    #[error(transparent)]
+    SPCOTSenderError(#[from] crate::ferret::spcot::SenderError),
+    #[error("{0}")]
+    StateError(String),
+}
+
+impl From<SenderRegularError> for OTError {
+    fn from(err: SenderRegularError) -> Self {
+        match err {
+            SenderRegularError::IOError(e) => e.into(),
+            e => OTError::SenderError(Box::new(e)),
+        }
+    }
+}
+
+impl From<crate::ferret::mpcot::sender::StateError> for SenderRegularError {
+    fn from(err: crate::ferret::mpcot::sender::StateError) -> Self {
+        SenderRegularError::StateError(err.to_string())
+    }
+}

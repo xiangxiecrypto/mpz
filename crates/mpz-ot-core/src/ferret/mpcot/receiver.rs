@@ -32,11 +32,11 @@ impl Receiver {
     /// # Argument
     ///
     /// * `hash_seed` - Random seed to generate hashes, will be sent to the sender.
-    pub fn setup(self, hash_seed: Block) -> (Receiver<state::PreExtension>, HashSeed) {
+    pub fn setup(self, hash_seed: Block) -> (Receiver<state::Extension>, HashSeed) {
         let mut prg = Prg::from_seed(hash_seed);
         let hashes = std::array::from_fn(|_| AesEncryptor::new(prg.random_block()));
         let recv = Receiver {
-            state: state::PreExtension {
+            state: state::Extension {
                 counter: 0,
                 hashes: Arc::new(hashes),
             },
@@ -48,7 +48,7 @@ impl Receiver {
     }
 }
 
-impl Receiver<state::PreExtension> {
+impl Receiver<state::Extension> {
     /// Performs the hash procedure in MPCOT extension.
     /// Outputs the length of each bucket plus 1.
     ///
@@ -63,7 +63,7 @@ impl Receiver<state::PreExtension> {
         self,
         alphas: &[u32],
         n: u32,
-    ) -> Result<(Receiver<state::Extension>, Vec<(usize, u32)>), ReceiverError> {
+    ) -> Result<(Receiver<state::ExtensionInternal>, Vec<(usize, u32)>), ReceiverError> {
         if alphas.len() as u32 > n {
             return Err(ReceiverError::InvalidInput(
                 "length of alphas should not exceed n".to_string(),
@@ -104,7 +104,7 @@ impl Receiver<state::PreExtension> {
         }
 
         let receiver = Receiver {
-            state: state::Extension {
+            state: state::ExtensionInternal {
                 counter: self.state.counter,
                 m,
                 n,
@@ -117,7 +117,7 @@ impl Receiver<state::PreExtension> {
         Ok((receiver, p))
     }
 }
-impl Receiver<state::Extension> {
+impl Receiver<state::ExtensionInternal> {
     /// Performs MPCOT extension.
     ///
     /// See Step 5 in Figure 7.
@@ -128,7 +128,7 @@ impl Receiver<state::Extension> {
     pub fn extend(
         self,
         rt: &[Vec<Block>],
-    ) -> Result<(Receiver<state::PreExtension>, Vec<Block>), ReceiverError> {
+    ) -> Result<(Receiver<state::Extension>, Vec<Block>), ReceiverError> {
         if rt.len() != self.state.m {
             return Err(ReceiverError::InvalidInput(
                 "the length rt should be m".to_string(),
@@ -165,7 +165,7 @@ impl Receiver<state::Extension> {
         }
 
         let receiver = Receiver {
-            state: state::PreExtension {
+            state: state::Extension {
                 counter: self.state.counter + 1,
                 hashes: self.state.hashes,
             },
@@ -182,8 +182,8 @@ pub mod state {
         pub trait Sealed {}
 
         impl Sealed for super::Initialized {}
-        impl Sealed for super::PreExtension {}
         impl Sealed for super::Extension {}
+        impl Sealed for super::ExtensionInternal {}
     }
 
     /// The receiver's state.
@@ -200,20 +200,20 @@ pub mod state {
     /// The receiver's state before extending.
     ///
     /// In this state the receiver performs pre extension in MPCOT (potentially multiple times).
-    pub struct PreExtension {
+    pub struct Extension {
         /// Current MPCOT counter
         pub(super) counter: usize,
         /// The hashes to generate Cuckoo hash table.
         pub(super) hashes: Arc<[AesEncryptor; CUCKOO_HASH_NUM]>,
     }
 
-    impl State for PreExtension {}
+    impl State for Extension {}
 
-    opaque_debug::implement!(PreExtension);
+    opaque_debug::implement!(Extension);
     /// The receiver's state of extension.
     ///
     /// In this state the receiver performs MPCOT extension (potentially multiple times).
-    pub struct Extension {
+    pub struct ExtensionInternal {
         /// Current MPCOT counter
         pub(super) counter: usize,
         /// Current length of Cuckoo hash table, will possibly be changed in each extension.
@@ -228,7 +228,7 @@ pub mod state {
         pub(super) buckets_length: Vec<usize>,
     }
 
-    impl State for Extension {}
+    impl State for ExtensionInternal {}
 
-    opaque_debug::implement!(Extension);
+    opaque_debug::implement!(ExtensionInternal);
 }
