@@ -64,5 +64,34 @@ mod tests {
                 vs[*alpha as usize] ^= delta;
                 vs == ws
             }));
+
+        // extend twice.
+        let hs = [6, 9, 8];
+        let alphas = [2, 1, 3];
+
+        tokio::try_join!(
+            sender.extend(&mut ctx_sender, &hs).map_err(OTError::from),
+            receiver
+                .extend(&mut ctx_receiver, &alphas, &hs)
+                .map_err(OTError::from)
+        )
+        .unwrap();
+
+        let (mut output_sender, output_receiver) = tokio::try_join!(
+            sender.check(&mut ctx_sender).map_err(OTError::from),
+            receiver.check(&mut ctx_receiver).map_err(OTError::from)
+        )
+        .unwrap();
+
+        assert!(output_sender
+            .iter_mut()
+            .zip(output_receiver.iter())
+            .all(|(vs, (ws, alpha))| {
+                vs[*alpha as usize] ^= delta;
+                vs == ws
+            }));
+
+        sender.finalize().unwrap();
+        receiver.finalize().unwrap();
     }
 }

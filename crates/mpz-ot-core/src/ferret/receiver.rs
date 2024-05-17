@@ -69,10 +69,6 @@ impl Receiver {
 impl Receiver<state::Extension> {
     /// The prepare precedure of extension, sample error vectors and outputs information for MPCOT.
     /// See step 3 and 4.
-    ///
-    /// # Arguments.
-    ///
-    /// * `lpn_type` - The type of LPN parameters.
     pub fn get_mpcot_query(&mut self) -> (Vec<u32>, usize) {
         match self.state.lpn_type {
             LpnType::Uniform => {

@@ -6,7 +6,7 @@ mod receiver_regular;
 mod sender;
 mod sender_regular;
 
-pub use error::{ReceiverError, SenderError};
+pub use error::{ReceiverError, ReceiverRegularError, SenderError, SenderRegularError};
 pub use receiver::Receiver;
 pub use receiver_regular::ReceiverRegular;
 pub use sender::Sender;
@@ -54,11 +54,12 @@ mod tests {
     }
 
     #[tokio::test]
-    async fn test_general_mpcot() {
+    async fn test_regular_mpcot() {
         let (mut ctx_sender, mut ctx_receiver) = test_st_executor(8);
 
         let (mut sender, mut receiver, delta) = setup_regular();
 
+        // extend once.
         let alphas = [0, 3, 4, 7, 9];
         let t = alphas.len();
         let n = 10;
@@ -82,12 +83,33 @@ mod tests {
 
         assert_eq!(output_sender, output_receiver);
 
+        // extend twice.
+        let alphas = [0, 3, 7, 9, 14, 15];
+        let t = alphas.len();
+        let n = 16;
+
+        let (mut output_sender, output_receiver) = tokio::try_join!(
+            sender
+                .extend(&mut ctx_sender, t as u32, n)
+                .map_err(OTError::from),
+            receiver
+                .extend(&mut ctx_receiver, &alphas, n)
+                .map_err(OTError::from)
+        )
+        .unwrap();
+
+        for i in alphas {
+            output_sender[i as usize] ^= delta;
+        }
+
+        assert_eq!(output_sender, output_receiver);
+
         sender.finalize().unwrap();
         receiver.finalize().unwrap();
     }
 
     #[tokio::test]
-    async fn test_regular_mpcot() {
+    async fn test_general_mpcot() {
         let (mut ctx_sender, mut ctx_receiver) = test_st_executor(8);
 
         let (mut sender, mut receiver, delta) = setup();
@@ -103,6 +125,27 @@ mod tests {
             receiver.setup(&mut ctx_receiver).map_err(OTError::from)
         )
         .unwrap();
+
+        let (mut output_sender, output_receiver) = tokio::try_join!(
+            sender
+                .extend(&mut ctx_sender, t as u32, n)
+                .map_err(OTError::from),
+            receiver
+                .extend(&mut ctx_receiver, &alphas, n)
+                .map_err(OTError::from)
+        )
+        .unwrap();
+
+        for i in alphas {
+            output_sender[i as usize] ^= delta;
+        }
+
+        assert_eq!(output_sender, output_receiver);
+
+        // extend twice
+        let alphas = [5, 1, 7, 2];
+        let t = alphas.len();
+        let n = 16;
 
         let (mut output_sender, output_receiver) = tokio::try_join!(
             sender

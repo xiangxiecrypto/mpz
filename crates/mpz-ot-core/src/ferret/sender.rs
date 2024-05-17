@@ -63,6 +63,7 @@ impl Sender<state::Extension> {
     /// Outputs the information for MPCOT.
     ///
     /// See step 3 and 4.
+    #[inline]
     pub fn get_mpcot_query(&self) -> (u32, u32) {
         (
             self.state.lpn_parameters.t as u32,

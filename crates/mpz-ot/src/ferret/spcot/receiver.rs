@@ -140,10 +140,24 @@ impl<RandomCOT: Send> Receiver<RandomCOT> {
         ctx.io_mut().send(checkfr).await?;
         let check = ctx.io_mut().expect_next().await?;
 
-        let output = Backend::spawn(move || ext_receiver.check(&z_star, check)).await?;
+        let (ext_receiver, output) = Backend::spawn(move || {
+            ext_receiver
+                .check(&z_star, check)
+                .map(|output| (ext_receiver, output))
+        })
+        .await?;
+
+        self.state = State::Extension(ext_receiver);
+
+        Ok(output)
+    }
+
+    /// Compete extension.
+    pub fn finalize(&mut self) -> Result<(), ReceiverError> {
+        std::mem::replace(&mut self.state, State::Error).try_into_extension()?;
 
         self.state = State::Complete;
 
-        Ok(output)
+        Ok(())
     }
 }
