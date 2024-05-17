@@ -60,7 +60,6 @@ impl<RandomCOT: Send> Receiver<RandomCOT> {
     }
 
     /// Performs MPCOT extension.
-    /// Note that MPCOT is only extended once, this is sufficient for Ferret.
     ///
     ///
     /// # Arguments
@@ -108,6 +107,7 @@ impl<RandomCOT: Send> Receiver<RandomCOT> {
     pub fn finalize(&mut self) -> Result<(), ReceiverError> {
         std::mem::replace(&mut self.state, State::Error).try_into_extension()?;
 
+        self.spcot.finalize()?;
         self.state = State::Complete;
 
         Ok(())

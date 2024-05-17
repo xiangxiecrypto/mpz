@@ -55,7 +55,6 @@ impl<RandomCOT: Send> SenderRegular<RandomCOT> {
     }
 
     /// Performs MPCOT regular extension.
-    /// Note that MPCOT is only extended once, this is sufficient for Ferret.
     ///
     /// # Argument
     ///
@@ -71,6 +70,7 @@ impl<RandomCOT: Send> SenderRegular<RandomCOT> {
     where
         RandomCOT: RandomCOTSender<Ctx, Block>,
     {
+        println!("here");
         let ext_sender = std::mem::replace(&mut self.state, State::Error).try_into_extension()?;
 
         let (ext_sender, hs) = Backend::spawn(move || ext_sender.pre_extend(t, n)).await?;
@@ -90,6 +90,7 @@ impl<RandomCOT: Send> SenderRegular<RandomCOT> {
     pub fn finalize(&mut self) -> Result<(), SenderRegularError> {
         std::mem::replace(&mut self.state, State::Error).try_into_extension()?;
 
+        self.spcot.finalize()?;
         self.state = State::Complete;
 
         Ok(())

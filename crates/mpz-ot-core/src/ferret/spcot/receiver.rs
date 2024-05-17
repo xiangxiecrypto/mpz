@@ -342,7 +342,6 @@ impl Receiver<state::Extension> {
         }
 
         self.state.cot_counter += self.state.unchecked_ws.len();
-        self.state.extended = true;
 
         let mut res = Vec::new();
         for (alpha, n) in &self.state.alphas_and_length {
@@ -350,7 +349,18 @@ impl Receiver<state::Extension> {
             res.push((tmp, *alpha));
         }
 
+        self.state.hasher = blake3::Hasher::new();
+        self.state.alphas_and_length.clear();
+        self.state.chis.clear();
+        self.state.unchecked_ws.clear();
+        
         Ok(res)
+    }
+
+    /// Complete extension.
+    #[inline]
+    pub fn finalize(&mut self) {
+        self.state.extended = true;
     }
 }
 

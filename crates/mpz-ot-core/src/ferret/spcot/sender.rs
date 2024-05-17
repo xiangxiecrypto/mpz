@@ -246,9 +246,17 @@ impl Sender<state::Extension> {
             res.push(tmp);
         }
 
-        self.state.extended = true;
+        self.state.hasher = blake3::Hasher::new();
+        self.state.unchecked_vs.clear();
+        self.state.vs_length.clear();
 
         Ok((res, CheckFromSender { hashed_v }))
+    }
+
+    /// Complete extension.
+    #[inline]
+    pub fn finalize(&mut self) {
+        self.state.extended = true;
     }
 }
 
