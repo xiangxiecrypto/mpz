@@ -48,7 +48,6 @@ pub enum LpnType {
 mod tests {
     use super::*;
 
-    use msgs::LpnMatrixSeed;
     use receiver::Receiver;
     use sender::Sender;
 
@@ -100,16 +99,12 @@ mod tests {
             )
             .unwrap();
 
-        let LpnMatrixSeed {
-            seed: lpn_matrix_seed,
-        } = seed;
-
         let mut sender = sender
             .setup(
                 delta,
                 LPN_PARAMETERS_TEST,
                 LpnType::Regular,
-                lpn_matrix_seed,
+                seed,
                 &v,
             )
             .unwrap();

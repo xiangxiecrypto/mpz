@@ -14,6 +14,7 @@ use mpz_ot_core::ferret::{
 };
 use mpz_ot_core::RCOTSenderOutput;
 use serio::stream::IoStreamExt;
+use utils_aio::non_blocking_backend::{Backend, NonBlockingBackend};
 
 #[derive(Debug, EnumTryAsInner)]
 #[derive_err(Debug)]
@@ -46,7 +47,6 @@ impl<RandomCOT: Send> Sender<RandomCOT> {
     /// # Argument
     ///
     /// * `rcot` - A rcot sender for MPCOT.
-    /// * `setup_rcot` - A rcot sender for setup.
     pub fn new(rcot: RandomCOT) -> Self {
         Self {
             state: State::Initialized(SenderCore::new()),
@@ -108,6 +108,55 @@ impl<RandomCOT: Send> Sender<RandomCOT> {
 
         Ok(())
     }
+
+    /// Performs extension.
+    ///
+    /// # Argument
+    ///
+    /// * `ctx` - The channel context.
+    pub async fn extend<Ctx: Context>(&mut self, ctx: &mut Ctx) -> Result<Vec<Block>, SenderError>
+    where
+        RandomCOT: RandomCOTSender<Ctx, Block>,
+    {
+        let mut ext_sender =
+            std::mem::replace(&mut self.state, State::Error).try_into_extension()?;
+
+        let (t, n) = ext_sender.get_mpcot_query();
+
+        let mut s = vec![];
+
+        if self.mpcot.is_uniform() {
+            let mpcot = self.mpcot.try_as_uniform_mut()?;
+
+            s = mpcot.extend(ctx, t, n).await?;
+        } else if self.mpcot.is_regular() {
+            let mpcot = self.mpcot.try_as_regular_mut()?;
+
+            s = mpcot.extend(ctx, t, n).await?;
+        }
+
+        let (ext_sender, output) =
+            Backend::spawn(move || ext_sender.extend(&s).map(|output| (ext_sender, output)))
+                .await?;
+        self.state = State::Extension(ext_sender);
+
+        Ok(output)
+    }
+
+    /// Complete extension
+    pub fn finalize(&mut self) -> Result<(), SenderError> {
+        self.state = State::Complete;
+
+        if self.mpcot.is_uniform() {
+            let mpcot = self.mpcot.try_as_uniform_mut()?;
+            mpcot.finalize()?;
+        } else if self.mpcot.is_regular() {
+            let mpcot = self.mpcot.try_as_regular_mut()?;
+            mpcot.finalize()?;
+        }
+
+        Ok(())
+    }
 }
 
 #[async_trait]
@@ -121,6 +170,29 @@ where
         ctx: &mut Ctx,
         count: usize,
     ) -> Result<RCOTSenderOutput<Block>, OTError> {
-        todo!()
+        let mut buffer = self.extend(ctx).await?;
+        let l = buffer.len();
+
+        let id = self
+            .state
+            .try_as_extension()
+            .map_err(SenderError::from)?
+            .id();
+
+        if count <= l {
+            let res = buffer.drain(..count).collect();
+            return Ok(RCOTSenderOutput { id, msgs: res });
+        } else {
+            let mut res = buffer;
+            for _ in 0..count / l - 1 {
+                buffer = self.extend(ctx).await?;
+                res.extend_from_slice(&buffer);
+            }
+
+            buffer = self.extend(ctx).await?;
+            res.extend_from_slice(&buffer[0..count % l]);
+
+            return Ok(RCOTSenderOutput { id, msgs: res });
+        }
     }
 }
