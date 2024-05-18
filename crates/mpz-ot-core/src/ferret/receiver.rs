@@ -4,7 +4,10 @@ use mpz_core::{
     Block,
 };
 
-use crate::ferret::{error::ReceiverError, LpnType};
+use crate::{
+    ferret::{error::ReceiverError, LpnType},
+    TransferId,
+};
 
 use super::msgs::LpnMatrixSeed;
 
@@ -59,6 +62,7 @@ impl Receiver {
                     u: u.to_vec(),
                     w: w.to_vec(),
                     e: Vec::default(),
+                    id: TransferId::default(),
                 },
             },
             LpnMatrixSeed { seed },
@@ -101,6 +105,8 @@ impl Receiver<state::Extension> {
             return Err(ReceiverError("the length of r should be n".to_string()));
         }
 
+        self.state.id.next();
+
         // Compute z = A * w + r.
         let mut z = r.to_vec();
         self.state.lpn_encoder.compute(&mut z, &self.state.w);
@@ -128,6 +134,11 @@ impl Receiver<state::Extension> {
         self.state.counter += 1;
 
         Ok((x_, z_))
+    }
+
+    /// Returns id
+    pub fn id(&self) -> TransferId {
+        self.state.id
     }
 }
 
@@ -172,6 +183,9 @@ pub mod state {
 
         /// Receiver's lpn error vector.
         pub(super) e: Vec<Block>,
+
+        /// TransferID
+        pub(super) id: TransferId,
     }
 
     impl State for Extension {}
