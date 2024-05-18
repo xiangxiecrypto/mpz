@@ -139,5 +139,4 @@ impl<RandomCOT: Send> Sender<RandomCOT> {
 
         Ok(())
     }
-
 }
