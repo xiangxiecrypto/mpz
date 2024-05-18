@@ -100,13 +100,7 @@ mod tests {
             .unwrap();
 
         let mut sender = sender
-            .setup(
-                delta,
-                LPN_PARAMETERS_TEST,
-                LpnType::Regular,
-                seed,
-                &v,
-            )
+            .setup(delta, LPN_PARAMETERS_TEST, LpnType::Regular, seed, &v)
             .unwrap();
 
         // extend once

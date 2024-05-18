@@ -353,7 +353,7 @@ impl Receiver<state::Extension> {
         self.state.alphas_and_length.clear();
         self.state.chis.clear();
         self.state.unchecked_ws.clear();
-        
+
         Ok(res)
     }
 
