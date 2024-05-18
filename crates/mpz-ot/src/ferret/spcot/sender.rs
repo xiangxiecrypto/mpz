@@ -19,7 +19,7 @@ use utils_aio::non_blocking_backend::{Backend, NonBlockingBackend};
 #[derive_err(Debug)]
 pub(crate) enum State {
     Initialized(SenderCore<state::Initialized>),
-    Extension(SenderCore<state::Extension>),
+    Extension(Box<SenderCore<state::Extension>>),
     Complete,
     Error,
 }
@@ -54,7 +54,7 @@ impl<RandomCOT: Send> Sender<RandomCOT> {
 
         let ext_sender = ext_sender.setup(delta);
 
-        self.state = State::Extension(ext_sender);
+        self.state = State::Extension(Box::new(ext_sender));
         Ok(())
     }
 
