@@ -19,7 +19,7 @@ use utils_aio::non_blocking_backend::{Backend, NonBlockingBackend};
 #[derive_err(Debug)]
 pub(crate) enum State {
     Initialized(ReceiverCore<state::Initialized>),
-    Extension(Box<ReceiverCore<state::Extension>>),
+    Extension(ReceiverCore<state::Extension>),
     Complete,
     Error,
 }
@@ -50,7 +50,7 @@ impl<RandomCOT: Send> Receiver<RandomCOT> {
             std::mem::replace(&mut self.state, State::Error).try_into_initialized()?;
 
         let ext_receiver = ext_receiver.setup();
-        self.state = State::Extension(Box::new(ext_receiver));
+        self.state = State::Extension(ext_receiver);
         Ok(())
     }
 
