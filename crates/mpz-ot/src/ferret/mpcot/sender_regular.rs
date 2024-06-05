@@ -70,7 +70,6 @@ impl<RandomCOT: Send> SenderRegular<RandomCOT> {
     where
         RandomCOT: RandomCOTSender<Ctx, Block>,
     {
-        println!("here");
         let ext_sender = std::mem::replace(&mut self.state, State::Error).try_into_extension()?;
 
         let (ext_sender, hs) = Backend::spawn(move || ext_sender.pre_extend(t, n)).await?;

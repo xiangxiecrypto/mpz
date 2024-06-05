@@ -5,6 +5,7 @@ use mpz_core::{
     utils::blake3, Block,
 };
 use rand_core::SeedableRng;
+#[cfg(feature = "rayon")]
 use rayon::iter::{
     IndexedParallelIterator, IntoParallelRefIterator, IntoParallelRefMutIterator, ParallelIterator,
 };

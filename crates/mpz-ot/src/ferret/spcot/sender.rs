@@ -26,7 +26,7 @@ pub(crate) enum State {
 
 /// SPCOT sender.
 #[derive(Debug)]
-pub struct Sender<RandomCOT> {
+pub(crate) struct Sender<RandomCOT> {
     state: State,
     rcot: RandomCOT,
 }
@@ -37,7 +37,7 @@ impl<RandomCOT: Send> Sender<RandomCOT> {
     /// # Arguments
     ///
     /// * `rcot` - The random COT used by the Sender.
-    pub fn new(rcot: RandomCOT) -> Self {
+    pub(crate) fn new(rcot: RandomCOT) -> Self {
         Self {
             state: State::Initialized(SenderCore::new()),
             rcot,
@@ -49,7 +49,7 @@ impl<RandomCOT: Send> Sender<RandomCOT> {
     /// # Arguments
     ///
     /// * `delta` - The delta value to use for OT extension.
-    pub fn setup_with_delta(&mut self, delta: Block) -> Result<(), SenderError> {
+    pub(crate) fn setup_with_delta(&mut self, delta: Block) -> Result<(), SenderError> {
         let ext_sender = std::mem::replace(&mut self.state, State::Error).try_into_initialized()?;
 
         let ext_sender = ext_sender.setup(delta);
@@ -64,7 +64,7 @@ impl<RandomCOT: Send> Sender<RandomCOT> {
     ///
     /// * `ctx` - The context.
     /// * `hs` - The depths of GGM trees.
-    pub async fn extend<Ctx: Context>(
+    pub(crate) async fn extend<Ctx: Context>(
         &mut self,
         ctx: &mut Ctx,
         hs: &[usize],
@@ -101,7 +101,7 @@ impl<RandomCOT: Send> Sender<RandomCOT> {
     /// # Arguments
     ///
     /// * `ctx` - The context.
-    pub async fn check<Ctx: Context>(
+    pub(crate) async fn check<Ctx: Context>(
         &mut self,
         ctx: &mut Ctx,
     ) -> Result<Vec<Vec<Block>>, SenderError>
@@ -132,7 +132,7 @@ impl<RandomCOT: Send> Sender<RandomCOT> {
     }
 
     /// Compete extension.
-    pub fn finalize(&mut self) -> Result<(), SenderError> {
+    pub(crate) fn finalize(&mut self) -> Result<(), SenderError> {
         std::mem::replace(&mut self.state, State::Error).try_into_extension()?;
 
         self.state = State::Complete;

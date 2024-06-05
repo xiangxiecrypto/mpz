@@ -26,7 +26,7 @@ pub(crate) enum State {
 
 /// SPCOT Receiver.
 #[derive(Debug)]
-pub struct Receiver<RandomCOT> {
+pub(crate) struct Receiver<RandomCOT> {
     state: State,
     rcot: RandomCOT,
 }
@@ -37,7 +37,7 @@ impl<RandomCOT: Send> Receiver<RandomCOT> {
     /// # Arguments
     ///
     /// * `rcot` - The random COT used by the receiver.
-    pub fn new(rcot: RandomCOT) -> Self {
+    pub(crate) fn new(rcot: RandomCOT) -> Self {
         Self {
             state: State::Initialized(ReceiverCore::new()),
             rcot,
@@ -45,7 +45,7 @@ impl<RandomCOT: Send> Receiver<RandomCOT> {
     }
 
     /// Performs setup for receiver.
-    pub fn setup(&mut self) -> Result<(), ReceiverError> {
+    pub(crate) fn setup(&mut self) -> Result<(), ReceiverError> {
         let ext_receiver =
             std::mem::replace(&mut self.state, State::Error).try_into_initialized()?;
 
@@ -61,7 +61,7 @@ impl<RandomCOT: Send> Receiver<RandomCOT> {
     /// * `ctx` - The context.
     /// * `alphas`` - The vector of chosen positions.
     /// * `h` - The depth of GGM tree.
-    pub async fn extend<Ctx: Context>(
+    pub(crate) async fn extend<Ctx: Context>(
         &mut self,
         ctx: &mut Ctx,
         alphas: &[u32],
@@ -113,7 +113,7 @@ impl<RandomCOT: Send> Receiver<RandomCOT> {
     /// # Arguments
     ///
     /// * `ctx` - The context.
-    pub async fn check<Ctx: Context>(
+    pub(crate) async fn check<Ctx: Context>(
         &mut self,
         ctx: &mut Ctx,
     ) -> Result<Vec<(Vec<Block>, u32)>, ReceiverError>
@@ -153,7 +153,7 @@ impl<RandomCOT: Send> Receiver<RandomCOT> {
     }
 
     /// Compete extension.
-    pub fn finalize(&mut self) -> Result<(), ReceiverError> {
+    pub(crate) fn finalize(&mut self) -> Result<(), ReceiverError> {
         std::mem::replace(&mut self.state, State::Error).try_into_extension()?;
 
         self.state = State::Complete;
