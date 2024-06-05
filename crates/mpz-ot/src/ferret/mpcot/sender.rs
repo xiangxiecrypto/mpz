@@ -23,7 +23,7 @@ pub(crate) enum State {
 
 /// MPCOT sender.
 #[derive(Debug)]
-pub struct Sender<RandomCOT> {
+pub(crate) struct Sender<RandomCOT> {
     state: State,
     spcot: SpcotSender<RandomCOT>,
 }
@@ -34,7 +34,7 @@ impl<RandomCOT: Send> Sender<RandomCOT> {
     /// # Arguments
     ///
     /// * `rcot` - A rcot sender.
-    pub fn new(rcot: RandomCOT) -> Self {
+    pub(crate) fn new(rcot: RandomCOT) -> Self {
         Self {
             state: State::Initialized(SenderCore::new()),
             spcot: crate::ferret::spcot::Sender::new(rcot),
@@ -47,7 +47,7 @@ impl<RandomCOT: Send> Sender<RandomCOT> {
     ///
     /// * `delta` - The delta value to use for OT extension.
     /// * `hash_seed` - The seed for Cuckoo hash sent by the receiver.
-    pub async fn setup_with_delta<Ctx: Context>(
+    pub(crate) async fn setup_with_delta<Ctx: Context>(
         &mut self,
         ctx: &mut Ctx,
         delta: Block,
@@ -72,7 +72,7 @@ impl<RandomCOT: Send> Sender<RandomCOT> {
     /// * `ctx` - The context.
     /// * `t` - The number of queried indices.
     /// * `n` - The total number of indices.
-    pub async fn extend<Ctx: Context>(
+    pub(crate) async fn extend<Ctx: Context>(
         &mut self,
         ctx: &mut Ctx,
         t: u32,
@@ -97,7 +97,7 @@ impl<RandomCOT: Send> Sender<RandomCOT> {
     }
 
     /// Compete extension.
-    pub fn finalize(&mut self) -> Result<(), SenderError> {
+    pub(crate) fn finalize(&mut self) -> Result<(), SenderError> {
         std::mem::replace(&mut self.state, State::Error).try_into_extension()?;
 
         self.spcot.finalize()?;

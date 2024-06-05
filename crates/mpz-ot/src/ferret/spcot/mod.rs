@@ -5,8 +5,8 @@ mod receiver;
 mod sender;
 
 pub use error::{ReceiverError, SenderError};
-pub use receiver::Receiver;
-pub use sender::Sender;
+pub(crate) use receiver::Receiver;
+pub(crate) use sender::Sender;
 
 #[cfg(test)]
 mod tests {

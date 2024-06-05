@@ -6,6 +6,7 @@ use mpz_core::{
     utils::blake3, Block,
 };
 use rand_core::SeedableRng;
+#[cfg(feature = "rayon")]
 use rayon::iter::{
     IndexedParallelIterator, IntoParallelRefIterator, IntoParallelRefMutIterator, ParallelIterator,
 };
@@ -206,22 +207,22 @@ impl Receiver<state::Extension> {
         cfg_if::cfg_if! {
             if #[cfg(feature = "rayon")]{
                 let iter = alphas
-                .par_iter()
-                .zip(ms_s.par_iter())
-                .zip(sum_s.par_iter())
-                .zip(hs.par_iter())
-                .zip(ts_s.par_iter())
-                .zip(trees.par_iter_mut())
-                .map(|(((((alpha, ms), sum), h), ts), tree)| (alpha, ms, sum, h, ts, tree));
+                    .par_iter()
+                    .zip(ms_s.par_iter())
+                    .zip(sum_s.par_iter())
+                    .zip(hs.par_iter())
+                    .zip(ts_s.par_iter())
+                    .zip(trees.par_iter_mut())
+                    .map(|(((((alpha, ms), sum), h), ts), tree)| (alpha, ms, sum, h, ts, tree));
             }else{
                 let iter = alphas
-                .iter()
-                .zip(ms_s.iter())
-                .zip(sum_s.iter())
-                .zip(hs.iter())
-                .zip(ts_s.iter())
-                .zip(trees.iter_mut())
-                .map(|(((((alpha, ms), sum), h), ts), tree)| (alpha, ms, sum, h, ts, tree));
+                    .iter()
+                    .zip(ms_s.iter())
+                    .zip(sum_s.iter())
+                    .zip(hs.iter())
+                    .zip(ts_s.iter())
+                    .zip(trees.iter_mut())
+                    .map(|(((((alpha, ms), sum), h), ts), tree)| (alpha, ms, sum, h, ts, tree));
             }
         }
 
