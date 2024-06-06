@@ -15,6 +15,8 @@ members = [
     "mpz-share-conversion-core",
     "matrix-transpose",
     "clmul",
+    "mpz-zk",
+    "mpz-zk-core",
 ]
 resolver = "2"
 
@@ -40,6 +42,8 @@ mpz-share-conversion = { path = "mpz-share-conversion" }
 mpz-share-conversion-core = { path = "mpz-share-conversion-core" }
 clmul = { path = "clmul" }
 matrix-transpose = { path = "matrix-transpose" }
+mpz-zk-core = { path = "mpz-zk-core" }
+mpz-zk = { path = "mpz-zk" }
 
 tlsn-utils = { git = "https://github.com/tlsnotary/tlsn-utils", rev = "8f2fc9e" }
 tlsn-utils-aio = { git = "https://github.com/tlsnotary/tlsn-utils", rev = "8f2fc9e" }
