@@ -10,8 +10,7 @@ pub const CSP: usize = 128;
 #[cfg(test)]
 mod tests {
     use mpz_core::{prg::Prg, Block};
-
-    use crate::{ideal::cot::IdealCOT, RCOTReceiverOutput, RCOTSenderOutput};
+    use mpz_ot_core::{ideal::cot::IdealCOT, RCOTReceiverOutput, RCOTSenderOutput};
 
     use super::{receiver::Receiver, sender::Sender, CSP};
 
