@@ -31,7 +31,6 @@ impl Sender {
         Sender {
             state: state::Extension {
                 delta,
-                bs: Vec::default(),
                 vope_counter: 0,
                 exec_counter: 0,
             },
@@ -50,14 +49,18 @@ impl Sender<state::Extension> {
     /// * `d` - The degree of the polynomial.
     ///
     /// Note that this functionality is only suitable for small d.
-    pub fn extend(&mut self, ks: &[Block], d: usize) -> Result<(), SenderError> {
-        if ks.len() != (2 * d - 1) * CSP {
-            return Err(SenderError(
-                "the length of ks should be (2 * d -1) * CSP".to_string(),
+    pub fn extend(&mut self, ks: &[Block], d: usize) -> Result<Block, SenderError> {
+        if d == 0 {
+            return Err(SenderError::InvalidInput(
+                "the degree d should not be 0".to_string(),
             ));
         }
 
-        let mut h_ks = ks.to_vec();
+        if ks.len() != (2 * d - 1) * CSP {
+            return Err(SenderError::InvalidLength(
+                "the length of ks should be (2 * d -1) * CSP".to_string(),
+            ));
+        }
 
         let mut ki = vec![Block::ZERO; 2 * d - 1];
 
@@ -65,9 +68,12 @@ impl Sender<state::Extension> {
             .map(|x| bytemuck::cast((1_u128) << (CSP - 1 - x)))
             .collect();
 
-        for i in 0..(2 * d - 1) {
-            let k = h_ks.split_off(CSP);
-            ki[i] = Block::inn_prdt_red(&k, &base);
+        let mut h_ks = ks.to_vec();
+
+        for k in ki.iter_mut().take(2 * d - 1) {
+            let buf = h_ks.split_off(CSP);
+            *k = Block::inn_prdt_red(&h_ks, &base);
+            h_ks = buf;
         }
 
         let mut b = ki[0];
@@ -76,11 +82,10 @@ impl Sender<state::Extension> {
             b = b.gfmul(ki[i + 1]) ^ ki[d + i]
         }
 
-        self.state.bs.push(b);
         self.state.exec_counter += 1;
         self.state.vope_counter += 1;
 
-        Ok(())
+        Ok(b)
     }
 }
 /// The sender's state.
@@ -110,8 +115,6 @@ pub mod state {
         /// Sender's global secret.
         #[allow(dead_code)]
         pub(crate) delta: Block,
-        /// Sender's output blocks, support multiple extension.
-        pub(super) bs: Vec<Block>,
 
         /// Current VOPE counter
         pub(super) vope_counter: usize,

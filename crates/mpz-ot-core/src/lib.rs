@@ -26,9 +26,9 @@ pub mod ferret;
 pub mod ideal;
 pub mod kos;
 pub mod msgs;
-pub mod vope;
 #[cfg(any(test, feature = "test-utils"))]
 pub mod test;
+pub mod vope;
 
 /// An oblivious transfer identifier.
 ///
