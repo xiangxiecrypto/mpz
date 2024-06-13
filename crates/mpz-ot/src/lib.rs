@@ -11,7 +11,6 @@
 
 pub mod chou_orlandi;
 pub mod ferret;
-#[cfg(any(test, feature = "ideal"))]
 pub mod ideal;
 pub mod kos;
 

@@ -9,8 +9,10 @@ pub const CSP: usize = 128;
 
 #[cfg(test)]
 mod tests {
-    use mpz_core::{prg::Prg, Block};
+    use mpz_core::prg::Prg;
     use mpz_ot_core::{ideal::cot::IdealCOT, RCOTReceiverOutput, RCOTSenderOutput};
+
+    use crate::test::poly_check;
 
     use super::{receiver::Receiver, sender::Sender, CSP};
 
@@ -59,12 +61,5 @@ mod tests {
         let receiver_out = receiver.extend(&ms, &us, d).unwrap();
 
         assert!(poly_check(&receiver_out, sender_out, delta));
-    }
-
-    fn poly_check(a: &[Block], b: Block, delta: Block) -> bool {
-        b == a
-            .iter()
-            .rev()
-            .fold(Block::ZERO, |acc, &x| x ^ (delta.gfmul(acc)))
     }
 }
