@@ -1,5 +1,5 @@
 use crate::{
-    ferret::{mpcot::UnionReceiver as MpcotReceiver, ReceiverError},
+    ferret::{mpcot::Receiver as MpcotReceiver, ReceiverError},
     RandomCOTReceiver,
 };
 use enum_try_as_inner::EnumTryAsInner;
@@ -32,8 +32,10 @@ pub struct Receiver<RandomCOT, SetupRandomCOT> {
     config: FerretConfig<RandomCOT, SetupRandomCOT>,
 }
 
-impl<RandomCOT: Send + Default + Clone, SetupRandomCOT: Send + Default>
-    Receiver<RandomCOT, SetupRandomCOT>
+impl<RandomCOT, SetupRandomCOT> Receiver<RandomCOT, SetupRandomCOT>
+where
+    RandomCOT: Send + Default + Clone,
+    SetupRandomCOT: Send + Default,
 {
     /// Creates a new Receiver.
     ///
@@ -53,7 +55,6 @@ impl<RandomCOT: Send + Default + Clone, SetupRandomCOT: Send + Default>
     /// # Arguments.
     ///
     /// * `ctx` - The channel context.
-    /// * `rcot` - The rcot used in MPCOT.
     pub async fn setup<Ctx>(&mut self, ctx: &mut Ctx) -> Result<(), ReceiverError>
     where
         Ctx: Context,
@@ -96,10 +97,7 @@ impl<RandomCOT: Send + Default + Clone, SetupRandomCOT: Send + Default>
     /// # Arguments
     ///
     /// * `ctx` - The channel context.
-    async fn extend<Ctx>(
-        &mut self,
-        ctx: &mut Ctx,
-    ) -> Result<(Vec<bool>, Vec<Block>), ReceiverError>
+    async fn extend<Ctx>(&mut self, ctx: &mut Ctx) -> Result<(Vec<bool>, Vec<Block>), ReceiverError>
     where
         Ctx: Context,
         RandomCOT: RandomCOTReceiver<Ctx, bool, Block>,

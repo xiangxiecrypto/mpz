@@ -1,4 +1,4 @@
-use crate::{ferret::mpcot::UnionSender as MpcotSender, RandomCOTSender};
+use crate::{ferret::mpcot::Sender as MpcotSender, RandomCOTSender};
 use enum_try_as_inner::EnumTryAsInner;
 use mpz_common::Context;
 use mpz_core::Block;
@@ -29,8 +29,10 @@ pub struct Sender<RandomCOT, SetupRandomCOT> {
     config: FerretConfig<RandomCOT, SetupRandomCOT>,
 }
 
-impl<RandomCOT: Send + Default + Clone, SetupRandomCOT: Send + Default>
-    Sender<RandomCOT, SetupRandomCOT>
+impl<RandomCOT, SetupRandomCOT> Sender<RandomCOT, SetupRandomCOT>
+where
+    RandomCOT: Send + Default + Clone,
+    SetupRandomCOT: Send + Default,
 {
     /// Creates a new Sender.
     pub fn new(config: FerretConfig<RandomCOT, SetupRandomCOT>) -> Self {

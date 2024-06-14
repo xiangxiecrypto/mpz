@@ -37,6 +37,10 @@ pub(crate) struct Receiver<RandomCOT> {
 
 impl<RandomCOT: Send + Default> Receiver<RandomCOT> {
     /// Creates a new Sender.
+    ///
+    /// # Arguments.
+    ///
+    /// * `lpn_type` - The type of LPN.
     pub(crate) fn new(lpn_type: LpnType) -> Self {
         match lpn_type {
             LpnType::Uniform => Self {
@@ -53,6 +57,11 @@ impl<RandomCOT: Send + Default> Receiver<RandomCOT> {
     }
 
     /// Performs setup for receiver.
+    ///
+    /// # Arguments
+    ///
+    /// * `ctx` - The context.
+    /// * `rcot` - The random COT used by Receiver.
     pub(crate) async fn setup<Ctx: Context>(
         &mut self,
         ctx: &mut Ctx,

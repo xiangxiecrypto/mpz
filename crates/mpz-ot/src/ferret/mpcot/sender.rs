@@ -38,6 +38,10 @@ pub(crate) struct Sender<RandomCOT> {
 
 impl<RandomCOT: Send + Default> Sender<RandomCOT> {
     /// Creates a new Sender.
+    /// 
+    /// # Arguments.
+    /// 
+    /// * `lpn_type` - The type of LPN.
     pub(crate) fn new(lpn_type: LpnType) -> Self {
         match lpn_type {
             LpnType::Uniform => Self {
@@ -57,7 +61,9 @@ impl<RandomCOT: Send + Default> Sender<RandomCOT> {
     ///
     /// # Arguments
     ///
+    /// * `ctx` - The channel.
     /// * `delta` - The delta value to use for OT extension.
+    /// * `rcot` - The random COT used by Sender.
     pub(crate) async fn setup_with_delta<Ctx: Context>(
         &mut self,
         ctx: &mut Ctx,

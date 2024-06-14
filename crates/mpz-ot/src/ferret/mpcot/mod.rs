@@ -1,20 +1,12 @@
 //! Implementation of the Multiple-Point COT (mpcot) protocol in the [`Ferret`](https://eprint.iacr.org/2020/924.pdf) paper.
 
 mod error;
-// mod receiver;
-// mod receiver_regular;
-// mod sender;
-// mod sender_regular;
 mod receiver;
 mod sender;
 
-pub use error::{ReceiverError, ReceiverRegularError, SenderError, SenderRegularError};
-// pub use receiver::Receiver;
-// pub use receiver_regular::ReceiverRegular;
-// pub(crate) use sender::Sender;
-// pub(crate) use sender_regular::SenderRegular;
-pub(crate) use sender::Sender as UnionSender;
-pub(crate) use receiver::Receiver as UnionReceiver;
+pub(crate) use error::{ReceiverError, SenderError};
+pub(crate) use receiver::Receiver;
+pub(crate) use sender::Sender;
 
 #[cfg(test)]
 mod tests {
@@ -28,18 +20,16 @@ mod tests {
         OTError,
     };
 
-    // use crate::ferret::mpcot::sender::Sender;
-    // use crate::ferret::mpcot::sender_regular::SenderRegular;
-    use receiver::Receiver as UnionReceiver;
-    use sender::Sender as UnionSender;
+    use receiver::Receiver;
+    use sender::Sender;
 
     use super::*;
 
-    fn setup_union(
+    fn setup(
         lpn_type: LpnType,
     ) -> (
-        UnionSender<IdealCOTSender>,
-        UnionReceiver<IdealCOTReceiver>,
+        Sender<IdealCOTSender>,
+        Receiver<IdealCOTReceiver>,
         IdealCOTSender,
         IdealCOTReceiver,
         Block,
@@ -48,170 +38,18 @@ mod tests {
 
         let delta = rcot_sender.alice().get_mut().delta();
 
-        let sender = UnionSender::new(lpn_type);
+        let sender = Sender::new(lpn_type);
 
-        let receiver = UnionReceiver::new(lpn_type);
+        let receiver = Receiver::new(lpn_type);
 
         (sender, receiver, rcot_sender, rcot_receiver, delta)
     }
-
-    // fn setup() -> (
-    //     Sender<IdealCOTSender>,
-    //     Receiver<IdealCOTReceiver>,
-    //     IdealCOTSender,
-    //     IdealCOTReceiver,
-    //     Block,
-    // ) {
-    //     let (mut rcot_sender, rcot_receiver) = ideal_rcot();
-
-    //     let delta = rcot_sender.alice().get_mut().delta();
-
-    //     let sender = Sender::new();
-
-    //     let receiver = Receiver::new();
-
-    //     (sender, receiver, rcot_sender, rcot_receiver, delta)
-    // }
-
-    // fn setup_regular() -> (
-    //     SenderRegular<IdealCOTSender>,
-    //     ReceiverRegular<IdealCOTReceiver>,
-    //     IdealCOTSender,
-    //     IdealCOTReceiver,
-    //     Block,
-    // ) {
-    //     let (mut rcot_sender, rcot_receiver) = ideal_rcot();
-
-    //     let delta = rcot_sender.alice().get_mut().delta();
-
-    //     let sender = SenderRegular::new();
-
-    //     let receiver = ReceiverRegular::new();
-
-    //     (sender, receiver, rcot_sender, rcot_receiver, delta)
-    // }
-
-    // #[tokio::test]
-    // async fn test_regular_mpcot() {
-    //     let (mut ctx_sender, mut ctx_receiver) = test_st_executor(8);
-
-    //     let (mut sender, mut receiver, rcot_sender, rcot_receiver, delta) = setup_regular();
-
-    //     // extend once.
-    //     let alphas = [0, 3, 4, 7, 9];
-    //     let t = alphas.len();
-    //     let n = 10;
-
-    //     sender.setup_with_delta(delta, rcot_sender).unwrap();
-    //     receiver.setup(rcot_receiver).unwrap();
-
-    //     let (mut output_sender, output_receiver) = tokio::try_join!(
-    //         sender
-    //             .extend(&mut ctx_sender, t as u32, n)
-    //             .map_err(OTError::from),
-    //         receiver
-    //             .extend(&mut ctx_receiver, &alphas, n)
-    //             .map_err(OTError::from)
-    //     )
-    //     .unwrap();
-
-    //     for i in alphas {
-    //         output_sender[i as usize] ^= delta;
-    //     }
-
-    //     assert_eq!(output_sender, output_receiver);
-
-    //     // extend twice.
-    //     let alphas = [0, 3, 7, 9, 14, 15];
-    //     let t = alphas.len();
-    //     let n = 16;
-
-    //     let (mut output_sender, output_receiver) = tokio::try_join!(
-    //         sender
-    //             .extend(&mut ctx_sender, t as u32, n)
-    //             .map_err(OTError::from),
-    //         receiver
-    //             .extend(&mut ctx_receiver, &alphas, n)
-    //             .map_err(OTError::from)
-    //     )
-    //     .unwrap();
-
-    //     for i in alphas {
-    //         output_sender[i as usize] ^= delta;
-    //     }
-
-    //     assert_eq!(output_sender, output_receiver);
-
-    //     sender.finalize().unwrap();
-    //     receiver.finalize().unwrap();
-    // }
-
-    // #[tokio::test]
-    // async fn test_general_mpcot() {
-    //     let (mut ctx_sender, mut ctx_receiver) = test_st_executor(8);
-
-    //     let (mut sender, mut receiver, rcot_sender, rcot_receiver, delta) = setup();
-
-    //     let alphas = [0, 1, 3, 4, 2];
-    //     let t = alphas.len();
-    //     let n = 10;
-
-    //     tokio::try_join!(
-    //         sender
-    //             .setup_with_delta(&mut ctx_sender, delta, rcot_sender)
-    //             .map_err(OTError::from),
-    //         receiver
-    //             .setup(&mut ctx_receiver, rcot_receiver)
-    //             .map_err(OTError::from)
-    //     )
-    //     .unwrap();
-
-    //     let (mut output_sender, output_receiver) = tokio::try_join!(
-    //         sender
-    //             .extend(&mut ctx_sender, t as u32, n)
-    //             .map_err(OTError::from),
-    //         receiver
-    //             .extend(&mut ctx_receiver, &alphas, n)
-    //             .map_err(OTError::from)
-    //     )
-    //     .unwrap();
-
-    //     for i in alphas {
-    //         output_sender[i as usize] ^= delta;
-    //     }
-
-    //     assert_eq!(output_sender, output_receiver);
-
-    //     // extend twice
-    //     let alphas = [5, 1, 7, 2];
-    //     let t = alphas.len();
-    //     let n = 16;
-
-    //     let (mut output_sender, output_receiver) = tokio::try_join!(
-    //         sender
-    //             .extend(&mut ctx_sender, t as u32, n)
-    //             .map_err(OTError::from),
-    //         receiver
-    //             .extend(&mut ctx_receiver, &alphas, n)
-    //             .map_err(OTError::from)
-    //     )
-    //     .unwrap();
-
-    //     for i in alphas {
-    //         output_sender[i as usize] ^= delta;
-    //     }
-
-    //     assert_eq!(output_sender, output_receiver);
-
-    //     sender.finalize().unwrap();
-    //     receiver.finalize().unwrap();
-    // }
 
     #[tokio::test]
     async fn test_mpcot() {
         let (mut ctx_sender, mut ctx_receiver) = test_st_executor(8);
 
-        let (mut sender, mut receiver, rcot_sender, rcot_receiver, delta) = setup_union(LpnType::Uniform);
+        let (mut sender, mut receiver, rcot_sender, rcot_receiver, delta) = setup(LpnType::Uniform);
 
         let alphas = [0, 1, 3, 4, 2];
         let t = alphas.len();
@@ -267,7 +105,7 @@ mod tests {
         sender.finalize().unwrap();
         receiver.finalize().unwrap();
 
-        let (mut sender, mut receiver, rcot_sender, rcot_receiver, delta) = setup_union(LpnType::Regular);
+        let (mut sender, mut receiver, rcot_sender, rcot_receiver, delta) = setup(LpnType::Regular);
 
         // extend once.
         let alphas = [0, 3, 4, 7, 9];

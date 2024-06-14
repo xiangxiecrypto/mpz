@@ -4,7 +4,7 @@ mod error;
 mod receiver;
 mod sender;
 
-pub use error::{ReceiverError, SenderError};
+pub(crate) use error::{ReceiverError, SenderError};
 pub(crate) use receiver::Receiver;
 pub(crate) use sender::Sender;
 
