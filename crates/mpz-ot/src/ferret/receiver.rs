@@ -35,7 +35,7 @@ pub struct Receiver<RandomCOT, SetupRandomCOT> {
 impl<RandomCOT, SetupRandomCOT> Receiver<RandomCOT, SetupRandomCOT>
 where
     RandomCOT: Send + Default + Clone,
-    SetupRandomCOT: Send + Default,
+    SetupRandomCOT: Send,
 {
     /// Creates a new Receiver.
     ///
@@ -137,7 +137,7 @@ impl<Ctx, RandomCOT, SetupRandomCOT> RandomCOTReceiver<Ctx, bool, Block>
 where
     Ctx: Context,
     RandomCOT: RandomCOTReceiver<Ctx, bool, Block> + Send + Clone + Default + 'static,
-    SetupRandomCOT: Send + Default + 'static,
+    SetupRandomCOT: Send + 'static,
 {
     async fn receive_random_correlated(
         &mut self,

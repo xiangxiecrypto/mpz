@@ -13,7 +13,7 @@ use mpz_core::lpn::LpnParameters;
 use mpz_ot_core::ferret::LpnType;
 
 /// Configuration of Ferret.
-#[derive(Debug, Default)]
+#[derive(Debug)]
 pub struct FerretConfig<RandomCOT, SetupRandomCOT> {
     rcot: RandomCOT,
     setup_rcot: SetupRandomCOT,
