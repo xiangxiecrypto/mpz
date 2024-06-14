@@ -15,42 +15,44 @@ use mpz_ot_core::{
 use serio::{stream::IoStreamExt, SinkExt};
 use utils_aio::non_blocking_backend::{Backend, NonBlockingBackend};
 
-#[derive(Debug, EnumTryAsInner)]
+#[derive(Debug, EnumTryAsInner, Default)]
 #[derive_err(Debug)]
 pub(crate) enum State {
     Initialized(ReceiverCore<state::Initialized>),
     Extension(Box<ReceiverCore<state::Extension>>),
     Complete,
+    #[default]
     Error,
 }
 
 /// SPCOT Receiver.
-#[derive(Debug)]
+#[derive(Debug, Default)]
 pub(crate) struct Receiver<RandomCOT> {
     state: State,
     rcot: RandomCOT,
 }
 
-impl<RandomCOT: Send> Receiver<RandomCOT> {
+impl<RandomCOT: Send + Default> Receiver<RandomCOT> {
     /// Creates a new Receiver.
     ///
     /// # Arguments
     ///
     /// * `rcot` - The random COT used by the receiver.
-    pub(crate) fn new(rcot: RandomCOT) -> Self {
+    pub(crate) fn new() -> Self {
         Self {
             state: State::Initialized(ReceiverCore::new()),
-            rcot,
+            rcot: Default::default(),
         }
     }
 
     /// Performs setup for receiver.
-    pub(crate) fn setup(&mut self) -> Result<(), ReceiverError> {
+    pub(crate) fn setup(&mut self, rcot: RandomCOT) -> Result<(), ReceiverError> {
         let ext_receiver =
             std::mem::replace(&mut self.state, State::Error).try_into_initialized()?;
 
         let ext_receiver = ext_receiver.setup();
         self.state = State::Extension(Box::new(ext_receiver));
+        self.rcot = rcot;
         Ok(())
     }
 

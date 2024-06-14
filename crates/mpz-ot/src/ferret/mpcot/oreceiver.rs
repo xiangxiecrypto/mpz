@@ -1,12 +1,13 @@
-// use crate::{ferret::spcot::Receiver as SpcotReceiver, RandomCOTReceiver};
+// use crate::{
+//     ferret::{mpcot::error::ReceiverError, spcot::Receiver as SpcotReceiver},
+//     RandomCOTReceiver,
+// };
 // use enum_try_as_inner::EnumTryAsInner;
-
 // use mpz_common::Context;
-// use mpz_core::Block;
-// use mpz_ot_core::ferret::mpcot::receiver_regular::{state, Receiver as ReceiverCore};
+// use mpz_core::{prg::Prg, Block};
+// use mpz_ot_core::ferret::mpcot::receiver::{state, Receiver as ReceiverCore};
+// use serio::SinkExt;
 // use utils_aio::non_blocking_backend::{Backend, NonBlockingBackend};
-
-// use super::error::ReceiverRegularError;
 
 // #[derive(Debug, EnumTryAsInner, Default)]
 // #[derive_err(Debug)]
@@ -18,17 +19,17 @@
 //     Error,
 // }
 
-// /// MPCOT regular receiver.
+// /// MPCOT receiver.
 // #[derive(Debug, Default)]
-// pub struct ReceiverRegular<RandomCOT> {
+// pub struct Receiver<RandomCOT> {
 //     state: State,
 //     spcot: SpcotReceiver<RandomCOT>,
 // }
 
-// impl<RandomCOT: Send + Default> ReceiverRegular<RandomCOT> {
+// impl<RandomCOT: Send + Default> Receiver<RandomCOT> {
 //     /// Creates a new Receiver.
 //     ///
-//     /// # Arguments.
+//     /// # Arguments
 //     ///
 //     /// * `rcot` - A rcot receiver.
 //     pub fn new() -> Self {
@@ -39,11 +40,23 @@
 //     }
 
 //     /// Performs setup.
-//     pub fn setup(&mut self, rcot: RandomCOT) -> Result<(), ReceiverRegularError> {
+//     ///
+//     /// # Argument
+//     ///
+//     /// * `ctx` - The context.
+//     pub async fn setup<Ctx: Context>(
+//         &mut self,
+//         ctx: &mut Ctx,
+//         rcot: RandomCOT,
+//     ) -> Result<(), ReceiverError> {
 //         let ext_receiver =
 //             std::mem::replace(&mut self.state, State::Error).try_into_initialized()?;
 
-//         let ext_receiver = ext_receiver.setup();
+//         let hash_seed = Prg::new().random_block();
+
+//         let (ext_receiver, hash_seed) = ext_receiver.setup(hash_seed);
+
+//         ctx.io_mut().send(hash_seed).await?;
 
 //         self.state = State::Extension(ext_receiver);
 //         self.spcot.setup(rcot)?;
@@ -51,11 +64,12 @@
 //         Ok(())
 //     }
 
-//     /// Performs MPCOT regular extension.
+//     /// Performs MPCOT extension.
 //     ///
-//     /// # Argument
 //     ///
-//     /// * `ctx` - The context.
+//     /// # Arguments
+//     ///
+//     /// * `ctx` - The context,
 //     /// * `alphas` - The queried indices.
 //     /// * `n` - The total number of indices.
 //     pub async fn extend<Ctx: Context>(
@@ -63,7 +77,7 @@
 //         ctx: &mut Ctx,
 //         alphas: &[u32],
 //         n: u32,
-//     ) -> Result<Vec<Block>, ReceiverRegularError>
+//     ) -> Result<Vec<Block>, ReceiverError>
 //     where
 //         RandomCOT: RandomCOTReceiver<Ctx, bool, Block>,
 //     {
@@ -76,6 +90,7 @@
 //         let mut hs = vec![0usize; h_and_pos.len()];
 
 //         let mut pos = vec![0u32; h_and_pos.len()];
+
 //         for (index, (h, p)) in h_and_pos.iter().enumerate() {
 //             hs[index] = *h;
 //             pos[index] = *p;
@@ -94,7 +109,7 @@
 //     }
 
 //     /// Compete extension.
-//     pub fn finalize(&mut self) -> Result<(), ReceiverRegularError> {
+//     pub fn finalize(&mut self) -> Result<(), ReceiverError> {
 //         std::mem::replace(&mut self.state, State::Error).try_into_extension()?;
 
 //         self.spcot.finalize()?;

@@ -1,20 +1,16 @@
-use crate::ferret::SenderError;
-use crate::OTError;
-use crate::{
-    ferret::mpcot::{Sender as MpcotUniformSender, SenderRegular as MpcotRegularSender},
-    RandomCOTSender,
-};
-use async_trait::async_trait;
+use crate::{ferret::mpcot::UnionSender as MpcotSender, RandomCOTSender};
 use enum_try_as_inner::EnumTryAsInner;
 use mpz_common::Context;
-use mpz_core::{lpn::LpnParameters, Block};
-use mpz_ot_core::ferret::{
-    sender::{state, Sender as SenderCore},
-    LpnType,
+use mpz_core::Block;
+use mpz_ot_core::{
+    ferret::sender::{state, Sender as SenderCore},
+    RCOTSenderOutput,
 };
-use mpz_ot_core::RCOTSenderOutput;
 use serio::stream::IoStreamExt;
 use utils_aio::non_blocking_backend::{Backend, NonBlockingBackend};
+
+use super::{FerretConfig, SenderError};
+use crate::{async_trait, OTError};
 
 #[derive(Debug, EnumTryAsInner)]
 #[derive_err(Debug)]
@@ -25,84 +21,62 @@ pub(crate) enum State {
     Error,
 }
 
-#[derive(Debug, EnumTryAsInner)]
-#[derive_err(Debug)]
-pub(crate) enum MpcotSender<RandomCOT> {
-    Uniform(MpcotUniformSender<RandomCOT>),
-    Regular(MpcotRegularSender<RandomCOT>),
-    Initial(RandomCOT),
-    Error,
-}
-
-/// Ferret sender.
+/// Ferret Sender.
 #[derive(Debug)]
-pub struct Sender<RandomCOT> {
+pub struct Sender<RandomCOT, SetupRandomCOT> {
     state: State,
     mpcot: MpcotSender<RandomCOT>,
+    config: FerretConfig<RandomCOT, SetupRandomCOT>,
 }
 
-impl<RandomCOT: Send> Sender<RandomCOT> {
+impl<RandomCOT: Send + Default + Clone, SetupRandomCOT: Send + Default>
+    Sender<RandomCOT, SetupRandomCOT>
+{
     /// Creates a new Sender.
-    ///
-    /// # Argument
-    ///
-    /// * `rcot` - A rcot sender for MPCOT.
-    pub fn new(rcot: RandomCOT) -> Self {
+    pub fn new(config: FerretConfig<RandomCOT, SetupRandomCOT>) -> Self {
         Self {
             state: State::Initialized(SenderCore::new()),
-            mpcot: MpcotSender::Initial(rcot),
+            mpcot: MpcotSender::new(config.lpn_type()),
+            config,
         }
     }
 
-    /// Setup with provided parameters.
+    /// Setup with provided delta.
     ///
     /// # Argument
     ///
     /// * `ctx` - The channel context.
-    /// * `setup_rcot` - A random COT for setup.
     /// * `delta` - The provided delta used for sender.
-    /// * `lpn_parameters` - The LPN parameters for ferret.
-    /// * `lpn_type` - The type of lpn problem (general or regular).
-    pub async fn setup_with_parameters<Ctx: Context>(
+    pub async fn setup_with_delta<Ctx>(
         &mut self,
         ctx: &mut Ctx,
-        setup_rcot: &mut impl RandomCOTSender<Ctx, Block>,
         delta: Block,
-        lpn_parameters: LpnParameters,
-        lpn_type: LpnType,
-    ) -> Result<(), SenderError> {
+    ) -> Result<(), SenderError>
+    where
+        Ctx: Context,
+        SetupRandomCOT: RandomCOTSender<Ctx, Block>,
+    {
         let ext_sender = std::mem::replace(&mut self.state, State::Error).try_into_initialized()?;
 
-        let rcot = std::mem::replace(&mut self.mpcot, MpcotSender::Error).try_into_initial()?;
+        let rcot = self.config.rcot();
 
-        // setup mpcot according to lpn_type
-        match lpn_type {
-            LpnType::Uniform => {
-                let mut mpcot = MpcotUniformSender::new(rcot);
+        self.mpcot.setup_with_delta(ctx, delta, rcot).await?;
 
-                mpcot.setup_with_delta(ctx, delta).await?;
-
-                self.mpcot = MpcotSender::Uniform(mpcot);
-            }
-            LpnType::Regular => {
-                let mut mpcot = MpcotRegularSender::new(rcot);
-
-                mpcot.setup_with_delta(delta)?;
-
-                self.mpcot = MpcotSender::Regular(mpcot);
-            }
-        }
+        let params = self.config.lpn_parameters();
+        let lpn_type = self.config.lpn_type();
 
         // Get random blocks from ideal Random COT.
-        let RCOTSenderOutput { msgs: v, .. } = setup_rcot
-            .send_random_correlated(ctx, lpn_parameters.k)
+        let RCOTSenderOutput { msgs: v, .. } = self
+            .config
+            .setup_rcot()
+            .send_random_correlated(ctx, params.k)
             .await?;
 
         // Get seed for LPN matrix from receiver.
         let seed = ctx.io_mut().expect_next().await?;
 
         // Ferret core setup.
-        let ext_sender = ext_sender.setup(delta, lpn_parameters, lpn_type, seed, &v)?;
+        let ext_sender = ext_sender.setup(delta, params, lpn_type, seed, &v)?;
 
         self.state = State::Extension(ext_sender);
 
@@ -114,7 +88,7 @@ impl<RandomCOT: Send> Sender<RandomCOT> {
     /// # Argument
     ///
     /// * `ctx` - The channel context.
-    pub async fn extend<Ctx: Context>(&mut self, ctx: &mut Ctx) -> Result<Vec<Block>, SenderError>
+    async fn extend<Ctx: Context>(&mut self, ctx: &mut Ctx) -> Result<Vec<Block>, SenderError>
     where
         RandomCOT: RandomCOTSender<Ctx, Block>,
     {
@@ -123,17 +97,7 @@ impl<RandomCOT: Send> Sender<RandomCOT> {
 
         let (t, n) = ext_sender.get_mpcot_query();
 
-        let mut s = vec![];
-
-        if self.mpcot.is_uniform() {
-            let mpcot = self.mpcot.try_as_uniform_mut()?;
-
-            s = mpcot.extend(ctx, t, n).await?;
-        } else if self.mpcot.is_regular() {
-            let mpcot = self.mpcot.try_as_regular_mut()?;
-
-            s = mpcot.extend(ctx, t, n).await?;
-        }
+        let s = self.mpcot.extend(ctx, t, n).await?;
 
         let (ext_sender, output) =
             Backend::spawn(move || ext_sender.extend(&s).map(|output| (ext_sender, output)))
@@ -145,25 +109,21 @@ impl<RandomCOT: Send> Sender<RandomCOT> {
 
     /// Complete extension
     pub fn finalize(&mut self) -> Result<(), SenderError> {
+        std::mem::replace(&mut self.state, State::Error).try_into_extension()?;
         self.state = State::Complete;
-
-        if self.mpcot.is_uniform() {
-            let mpcot = self.mpcot.try_as_uniform_mut()?;
-            mpcot.finalize()?;
-        } else if self.mpcot.is_regular() {
-            let mpcot = self.mpcot.try_as_regular_mut()?;
-            mpcot.finalize()?;
-        }
+        self.mpcot.finalize()?;
 
         Ok(())
     }
 }
 
 #[async_trait]
-impl<Ctx, RandomCOT> RandomCOTSender<Ctx, Block> for Sender<RandomCOT>
+impl<Ctx, RandomCOT, SetupRandomCOT> RandomCOTSender<Ctx, Block>
+    for Sender<RandomCOT, SetupRandomCOT>
 where
     Ctx: Context,
-    RandomCOT: RandomCOTSender<Ctx, Block> + Send + 'static,
+    RandomCOT: RandomCOTSender<Ctx, Block> + Send + Default + Clone + 'static,
+    SetupRandomCOT: Send + Default + 'static,
 {
     async fn send_random_correlated(
         &mut self,

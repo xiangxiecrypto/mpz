@@ -46,7 +46,7 @@ pub fn ideal_rcot() -> (IdealCOTSender, IdealCOTReceiver) {
 }
 
 /// Ideal COT sender.
-#[derive(Debug, Clone)]
+#[derive(Debug, Clone, Default)]
 pub struct IdealCOTSender(Alice<IdealCOT>);
 
 impl IdealCOTSender {
@@ -89,7 +89,7 @@ impl<Ctx: Context> RandomCOTSender<Ctx, Block> for IdealCOTSender {
 }
 
 /// Ideal COT receiver.
-#[derive(Debug, Clone)]
+#[derive(Debug, Clone, Default)]
 pub struct IdealCOTReceiver(Bob<IdealCOT>);
 
 #[async_trait]

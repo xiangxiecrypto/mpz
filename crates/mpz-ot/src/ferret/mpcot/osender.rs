@@ -1,32 +1,34 @@
 // use crate::{
-//     ferret::{mpcot::error::SenderRegularError, spcot::Sender as SpcotSender},
+//     ferret::{mpcot::error::SenderError, spcot::Sender as SpcotSender},
 //     RandomCOTSender,
 // };
 // use enum_try_as_inner::EnumTryAsInner;
-
 // use mpz_common::Context;
 // use mpz_core::Block;
-// use mpz_ot_core::ferret::mpcot::sender_regular::{state, Sender as SenderCore};
+// use mpz_ot_core::ferret::mpcot::{
+//     msgs::HashSeed,
+//     sender::{state, Sender as SenderCore},
+// };
+// use serio::stream::IoStreamExt;
 // use utils_aio::non_blocking_backend::{Backend, NonBlockingBackend};
 
-// #[derive(Debug, EnumTryAsInner, Default)]
+// #[derive(Debug, EnumTryAsInner)]
 // #[derive_err(Debug)]
 // pub(crate) enum State {
 //     Initialized(SenderCore<state::Initialized>),
 //     Extension(SenderCore<state::Extension>),
 //     Complete,
-//     #[default]
 //     Error,
 // }
 
-// /// MPCOT regular sender.
-// #[derive(Debug, Default)]
-// pub(crate) struct SenderRegular<RandomCOT> {
+// /// MPCOT sender.
+// #[derive(Debug)]
+// pub(crate) struct Sender<RandomCOT> {
 //     state: State,
 //     spcot: SpcotSender<RandomCOT>,
 // }
 
-// impl<RandomCOT: Send + Default> SenderRegular<RandomCOT> {
+// impl<RandomCOT: Send + Default> Sender<RandomCOT> {
 //     /// Creates a new Sender.
 //     ///
 //     /// # Arguments
@@ -41,17 +43,20 @@
 
 //     /// Performs setup with the provided delta.
 //     ///
-//     /// # Argument
+//     /// # Arguments
 //     ///
-//     /// `delta` - The delta value to use for OT extension.
-//     pub(crate) fn setup_with_delta(
+//     /// * `delta` - The delta value to use for OT extension.
+//     pub(crate) async fn setup_with_delta<Ctx: Context>(
 //         &mut self,
+//         ctx: &mut Ctx,
 //         delta: Block,
 //         rcot: RandomCOT,
-//     ) -> Result<(), SenderRegularError> {
+//     ) -> Result<(), SenderError> {
 //         let ext_sender = std::mem::replace(&mut self.state, State::Error).try_into_initialized()?;
 
-//         let ext_sender = ext_sender.setup(delta);
+//         let hash_seed: HashSeed = ctx.io_mut().expect_next().await?;
+
+//         let ext_sender = ext_sender.setup(delta, hash_seed);
 
 //         self.state = State::Extension(ext_sender);
 //         self.spcot.setup_with_delta(delta, rcot)?;
@@ -59,9 +64,10 @@
 //         Ok(())
 //     }
 
-//     /// Performs MPCOT regular extension.
+//     /// Performs MPCOT extension.
 //     ///
-//     /// # Argument
+//     ///
+//     /// # Arguments
 //     ///
 //     /// * `ctx` - The context.
 //     /// * `t` - The number of queried indices.
@@ -71,7 +77,7 @@
 //         ctx: &mut Ctx,
 //         t: u32,
 //         n: u32,
-//     ) -> Result<Vec<Block>, SenderRegularError>
+//     ) -> Result<Vec<Block>, SenderError>
 //     where
 //         RandomCOT: RandomCOTSender<Ctx, Block>,
 //     {
@@ -91,7 +97,7 @@
 //     }
 
 //     /// Compete extension.
-//     pub(crate) fn finalize(&mut self) -> Result<(), SenderRegularError> {
+//     pub(crate) fn finalize(&mut self) -> Result<(), SenderError> {
 //         std::mem::replace(&mut self.state, State::Error).try_into_extension()?;
 
 //         self.spcot.finalize()?;

@@ -15,32 +15,33 @@ use mpz_ot_core::{
 use serio::{stream::IoStreamExt, SinkExt};
 use utils_aio::non_blocking_backend::{Backend, NonBlockingBackend};
 
-#[derive(Debug, EnumTryAsInner)]
+#[derive(Debug, EnumTryAsInner, Default)]
 #[derive_err(Debug)]
 pub(crate) enum State {
     Initialized(SenderCore<state::Initialized>),
     Extension(Box<SenderCore<state::Extension>>),
     Complete,
+    #[default]
     Error,
 }
 
 /// SPCOT sender.
-#[derive(Debug)]
+#[derive(Debug, Default)]
 pub(crate) struct Sender<RandomCOT> {
     state: State,
     rcot: RandomCOT,
 }
 
-impl<RandomCOT: Send> Sender<RandomCOT> {
+impl<RandomCOT: Send + Default> Sender<RandomCOT> {
     /// Creates a new Sender.
     ///
     /// # Arguments
     ///
     /// * `rcot` - The random COT used by the Sender.
-    pub(crate) fn new(rcot: RandomCOT) -> Self {
+    pub(crate) fn new() -> Self {
         Self {
             state: State::Initialized(SenderCore::new()),
-            rcot,
+            rcot: Default::default(),
         }
     }
 
@@ -49,12 +50,17 @@ impl<RandomCOT: Send> Sender<RandomCOT> {
     /// # Arguments
     ///
     /// * `delta` - The delta value to use for OT extension.
-    pub(crate) fn setup_with_delta(&mut self, delta: Block) -> Result<(), SenderError> {
+    pub(crate) fn setup_with_delta(
+        &mut self,
+        delta: Block,
+        rcot: RandomCOT,
+    ) -> Result<(), SenderError> {
         let ext_sender = std::mem::replace(&mut self.state, State::Error).try_into_initialized()?;
 
         let ext_sender = ext_sender.setup(delta);
 
         self.state = State::Extension(Box::new(ext_sender));
+        self.rcot = rcot;
         Ok(())
     }
 
