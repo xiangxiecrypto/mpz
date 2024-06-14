@@ -16,7 +16,6 @@ use mpz_ot_core::ferret::{
 use serio::stream::IoStreamExt;
 use utils_aio::non_blocking_backend::{Backend, NonBlockingBackend};
 
-
 #[derive(Debug, EnumTryAsInner)]
 #[derive_err(Debug)]
 pub(crate) enum State {
@@ -38,9 +37,9 @@ pub(crate) struct Sender<RandomCOT> {
 
 impl<RandomCOT: Send + Default> Sender<RandomCOT> {
     /// Creates a new Sender.
-    /// 
+    ///
     /// # Arguments.
-    /// 
+    ///
     /// * `lpn_type` - The type of LPN.
     pub(crate) fn new(lpn_type: LpnType) -> Self {
         match lpn_type {
