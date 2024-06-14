@@ -32,7 +32,7 @@ pub struct Sender<RandomCOT, SetupRandomCOT> {
 impl<RandomCOT, SetupRandomCOT> Sender<RandomCOT, SetupRandomCOT>
 where
     RandomCOT: Send + Default + Clone,
-    SetupRandomCOT: Send + Default,
+    SetupRandomCOT: Send,
 {
     /// Creates a new Sender.
     pub fn new(config: FerretConfig<RandomCOT, SetupRandomCOT>) -> Self {
@@ -125,7 +125,7 @@ impl<Ctx, RandomCOT, SetupRandomCOT> RandomCOTSender<Ctx, Block>
 where
     Ctx: Context,
     RandomCOT: RandomCOTSender<Ctx, Block> + Send + Default + Clone + 'static,
-    SetupRandomCOT: Send + Default + 'static,
+    SetupRandomCOT: Send + 'static,
 {
     async fn send_random_correlated(
         &mut self,

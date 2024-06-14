@@ -15,18 +15,17 @@ use mpz_ot_core::{
 use serio::{stream::IoStreamExt, SinkExt};
 use utils_aio::non_blocking_backend::{Backend, NonBlockingBackend};
 
-#[derive(Debug, EnumTryAsInner, Default)]
+#[derive(Debug, EnumTryAsInner)]
 #[derive_err(Debug)]
 pub(crate) enum State {
     Initialized(ReceiverCore<state::Initialized>),
     Extension(Box<ReceiverCore<state::Extension>>),
     Complete,
-    #[default]
     Error,
 }
 
 /// SPCOT Receiver.
-#[derive(Debug, Default)]
+#[derive(Debug)]
 pub(crate) struct Receiver<RandomCOT> {
     state: State,
     rcot: RandomCOT,
