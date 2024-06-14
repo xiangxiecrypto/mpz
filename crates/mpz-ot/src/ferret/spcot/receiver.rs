@@ -41,10 +41,10 @@ impl<RandomCOT: Send + Default> Receiver<RandomCOT> {
     }
 
     /// Performs setup for receiver.
-    /// 
+    ///
     /// # Arguments.
-    /// 
-    /// * `rcot` - The random COT used by the receiver. 
+    ///
+    /// * `rcot` - The random COT used by the receiver.
     pub(crate) fn setup(&mut self, rcot: RandomCOT) -> Result<(), ReceiverError> {
         let ext_receiver =
             std::mem::replace(&mut self.state, State::Error).try_into_initialized()?;
