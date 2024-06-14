@@ -1,10 +1,9 @@
 //! An implementation of the [`Ferret`](https://eprint.iacr.org/2020/924.pdf) protocol.
 mod error;
+mod mpcot;
 mod receiver;
 mod sender;
-
-pub mod mpcot;
-pub mod spcot;
+mod spcot;
 
 pub use error::{ReceiverError, SenderError};
 pub use receiver::Receiver;
@@ -65,6 +64,7 @@ impl<RandomCOT: Clone, SetupRandomCOT> FerretConfig<RandomCOT, SetupRandomCOT> {
         self.lpn_parameters
     }
 }
+
 #[cfg(test)]
 mod tests {
     use futures::TryFutureExt;

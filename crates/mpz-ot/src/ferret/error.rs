@@ -11,8 +11,6 @@ pub enum SenderError {
     #[error(transparent)]
     MPCOTSenderError(#[from] crate::ferret::mpcot::SenderError),
     #[error(transparent)]
-    MPCOTSenderRegularError(#[from] crate::ferret::mpcot::SenderRegularError),
-    #[error(transparent)]
     RandomCOTError(#[from] OTError),
     #[error("{0}")]
     StateError(String),
@@ -45,8 +43,6 @@ pub enum ReceiverError {
     CoreError(#[from] mpz_ot_core::ferret::error::ReceiverError),
     #[error(transparent)]
     MPCOTReceiverError(#[from] crate::ferret::mpcot::ReceiverError),
-    #[error(transparent)]
-    MPCOTReceiverRegularError(#[from] crate::ferret::mpcot::ReceiverRegularError),
     #[error(transparent)]
     RandomCOTError(#[from] OTError),
     #[error("{0}")]

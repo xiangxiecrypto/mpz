@@ -34,10 +34,6 @@ pub(crate) struct Sender<RandomCOT> {
 
 impl<RandomCOT: Send + Default> Sender<RandomCOT> {
     /// Creates a new Sender.
-    ///
-    /// # Arguments
-    ///
-    /// * `rcot` - The random COT used by the Sender.
     pub(crate) fn new() -> Self {
         Self {
             state: State::Initialized(SenderCore::new()),
@@ -50,6 +46,7 @@ impl<RandomCOT: Send + Default> Sender<RandomCOT> {
     /// # Arguments
     ///
     /// * `delta` - The delta value to use for OT extension.
+    /// * `rcot` - The random COT used by the sender.
     pub(crate) fn setup_with_delta(
         &mut self,
         delta: Block,
@@ -137,7 +134,7 @@ impl<RandomCOT: Send + Default> Sender<RandomCOT> {
         Ok(output)
     }
 
-    /// Compete extension.
+    /// Complete extension.
     pub(crate) fn finalize(&mut self) -> Result<(), SenderError> {
         std::mem::replace(&mut self.state, State::Error).try_into_extension()?;
 

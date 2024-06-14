@@ -34,10 +34,6 @@ pub(crate) struct Receiver<RandomCOT> {
 
 impl<RandomCOT: Send + Default> Receiver<RandomCOT> {
     /// Creates a new Receiver.
-    ///
-    /// # Arguments
-    ///
-    /// * `rcot` - The random COT used by the receiver.
     pub(crate) fn new() -> Self {
         Self {
             state: State::Initialized(ReceiverCore::new()),
@@ -46,6 +42,10 @@ impl<RandomCOT: Send + Default> Receiver<RandomCOT> {
     }
 
     /// Performs setup for receiver.
+    /// 
+    /// # Arguments.
+    /// 
+    /// * `rcot` - The random COT used by the receiver. 
     pub(crate) fn setup(&mut self, rcot: RandomCOT) -> Result<(), ReceiverError> {
         let ext_receiver =
             std::mem::replace(&mut self.state, State::Error).try_into_initialized()?;
@@ -154,7 +154,7 @@ impl<RandomCOT: Send + Default> Receiver<RandomCOT> {
         Ok(output)
     }
 
-    /// Compete extension.
+    /// Complete extension.
     pub(crate) fn finalize(&mut self) -> Result<(), ReceiverError> {
         std::mem::replace(&mut self.state, State::Error).try_into_extension()?;
 
