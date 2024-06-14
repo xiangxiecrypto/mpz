@@ -10,6 +10,61 @@ pub use error::{ReceiverError, SenderError};
 pub use receiver::Receiver;
 pub use sender::Sender;
 
+use mpz_core::lpn::LpnParameters;
+use mpz_ot_core::ferret::LpnType;
+
+/// Configuration of Ferret.
+#[derive(Debug, Default)]
+pub struct FerretConfig<RandomCOT, SetupRandomCOT> {
+    rcot: RandomCOT,
+    setup_rcot: SetupRandomCOT,
+    lpn_parameters: LpnParameters,
+    lpn_type: LpnType,
+}
+
+impl<RandomCOT: Clone, SetupRandomCOT> FerretConfig<RandomCOT, SetupRandomCOT> {
+    /// Create a new instance.
+    ///
+    /// # Arguments.
+    ///
+    /// * `rcot` - The rcot for MPCOT.
+    /// * `setup_rcot` - The rcot for setup.
+    /// * `lpn_parameters` - The parameters of LPN.
+    /// * `lpn_type` - The type of LPN.
+    pub fn new(
+        rcot: RandomCOT,
+        setup_rcot: SetupRandomCOT,
+        lpn_parameters: LpnParameters,
+        lpn_type: LpnType,
+    ) -> Self {
+        Self {
+            rcot,
+            setup_rcot,
+            lpn_parameters,
+            lpn_type,
+        }
+    }
+
+    /// Get rcot
+    pub fn rcot(&self) -> RandomCOT {
+        self.rcot.clone()
+    }
+
+    /// Get the setup rcot
+    pub fn setup_rcot(&mut self) -> &mut SetupRandomCOT {
+        &mut self.setup_rcot
+    }
+
+    /// Get the lpn type
+    pub fn lpn_type(&self) -> LpnType {
+        self.lpn_type
+    }
+
+    /// Get the lpn parameters
+    pub fn lpn_parameters(&self) -> LpnParameters {
+        self.lpn_parameters
+    }
+}
 #[cfg(test)]
 mod tests {
     use futures::TryFutureExt;
@@ -32,49 +87,46 @@ mod tests {
     };
 
     fn setup() -> (
-        IdealCOTSender,
-        IdealCOTReceiver,
-        Sender<IdealCOTSender>,
-        Receiver<IdealCOTReceiver>,
+        Sender<IdealCOTSender, IdealCOTSender>,
+        Receiver<IdealCOTReceiver, IdealCOTReceiver>,
         Block,
     ) {
         let (mut rcot_sender, rcot_receiver) = ideal_rcot();
 
+        let sender_config = FerretConfig::new(
+            rcot_sender.clone(),
+            rcot_sender.clone(),
+            LPN_PARAMETERS_TEST,
+            LpnType::Regular,
+        );
+
+        let receiver_config = FerretConfig::new(
+            rcot_receiver.clone(),
+            rcot_receiver,
+            LPN_PARAMETERS_TEST,
+            LpnType::Regular,
+        );
+
         let delta = rcot_sender.alice().get_mut().delta();
 
-        let sender = Sender::new(rcot_sender.clone());
+        let sender = Sender::new(sender_config);
 
-        let receiver = Receiver::new(rcot_receiver.clone());
+        let receiver = Receiver::new(receiver_config);
 
-        (rcot_sender, rcot_receiver, sender, receiver, delta)
+        (sender, receiver, delta)
     }
 
     #[tokio::test]
     async fn test_ferret() {
         let (mut ctx_sender, mut ctx_receiver) = test_st_executor(8);
 
-        let (mut rcot_sender, mut rcot_receiver, mut sender, mut receiver, delta) = setup();
+        let (mut sender, mut receiver, delta) = setup();
 
         tokio::try_join!(
             sender
-                .setup_with_parameters(
-                    &mut ctx_sender,
-                    &mut rcot_sender,
-                    delta,
-                    LPN_PARAMETERS_TEST,
-                    // Can change the type to Unifrom
-                    LpnType::Regular
-                )
+                .setup_with_delta(&mut ctx_sender, delta)
                 .map_err(OTError::from),
-            receiver
-                .setup_with_parameters(
-                    &mut ctx_receiver,
-                    &mut rcot_receiver,
-                    LPN_PARAMETERS_TEST,
-                    // Can change the type to Unifrom
-                    LpnType::Regular
-                )
-                .map_err(OTError::from)
+            receiver.setup(&mut ctx_receiver).map_err(OTError::from)
         )
         .unwrap();
 

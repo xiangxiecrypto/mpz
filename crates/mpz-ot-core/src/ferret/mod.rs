@@ -36,11 +36,12 @@ pub const LPN_PARAMETERS_UNIFORM: LpnParameters = LpnParameters {
 };
 
 /// The type of Lpn parameters.
-#[derive(Debug)]
+#[derive(Debug, Clone, Copy, Default)]
 pub enum LpnType {
     /// Uniform error distribution.
     Uniform,
     /// Regular error distribution.
+    #[default]
     Regular,
 }
 

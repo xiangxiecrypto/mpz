@@ -18,7 +18,7 @@ struct Buffer {
 }
 
 /// The ideal functionality from the perspective of Alice.
-#[derive(Debug)]
+#[derive(Debug, Default)]
 pub struct Alice<F> {
     f: Arc<Mutex<F>>,
     buffer: Arc<Mutex<Buffer>>,
@@ -79,7 +79,7 @@ impl<F> Alice<F> {
 }
 
 /// The ideal functionality from the perspective of Bob.
-#[derive(Debug)]
+#[derive(Debug, Default)]
 pub struct Bob<F> {
     f: Arc<Mutex<F>>,
     buffer: Arc<Mutex<Buffer>>,

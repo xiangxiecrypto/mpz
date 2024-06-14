@@ -35,12 +35,6 @@ impl From<crate::ferret::sender::StateError> for SenderError {
     }
 }
 
-impl<RandomCOT> From<crate::ferret::sender::MpcotSenderError<RandomCOT>> for SenderError {
-    fn from(err: crate::ferret::sender::MpcotSenderError<RandomCOT>) -> Self {
-        SenderError::MPCOTSenderTypeError(err.to_string())
-    }
-}
-
 /// A Ferret receiver error.
 #[derive(Debug, thiserror::Error)]
 #[allow(missing_docs)]
@@ -73,11 +67,5 @@ impl From<ReceiverError> for OTError {
 impl From<crate::ferret::receiver::StateError> for ReceiverError {
     fn from(err: crate::ferret::receiver::StateError) -> Self {
         ReceiverError::StateError(err.to_string())
-    }
-}
-
-impl<RandomCOT> From<crate::ferret::receiver::MpcotReceiverError<RandomCOT>> for ReceiverError {
-    fn from(err: crate::ferret::receiver::MpcotReceiverError<RandomCOT>) -> Self {
-        ReceiverError::MPCOTReceiverTypeError(err.to_string())
     }
 }

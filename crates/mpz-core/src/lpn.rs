@@ -113,7 +113,7 @@ impl<const D: usize> LpnEncoder<D> {
 }
 
 /// Lpn paramters
-#[derive(Copy, Clone, Debug)]
+#[derive(Copy, Clone, Debug, Default)]
 pub struct LpnParameters {
     /// The length of output vecotrs.
     pub n: usize,

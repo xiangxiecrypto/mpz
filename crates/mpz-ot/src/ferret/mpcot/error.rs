@@ -23,6 +23,12 @@ impl From<SenderError> for OTError {
     }
 }
 
+// impl From<crate::ferret::mpcot::sender::StateError> for SenderError {
+//     fn from(err: crate::ferret::mpcot::sender::StateError) -> Self {
+//         SenderError::StateError(err.to_string())
+//     }
+// }
+
 impl From<crate::ferret::mpcot::sender::StateError> for SenderError {
     fn from(err: crate::ferret::mpcot::sender::StateError) -> Self {
         SenderError::StateError(err.to_string())
@@ -51,6 +57,12 @@ impl From<ReceiverError> for OTError {
         }
     }
 }
+
+// impl From<crate::ferret::mpcot::receiver::StateError> for ReceiverError {
+//     fn from(err: crate::ferret::mpcot::receiver::StateError) -> Self {
+//         ReceiverError::StateError(err.to_string())
+//     }
+// }
 
 impl From<crate::ferret::mpcot::receiver::StateError> for ReceiverError {
     fn from(err: crate::ferret::mpcot::receiver::StateError) -> Self {
@@ -81,11 +93,11 @@ impl From<SenderRegularError> for OTError {
     }
 }
 
-impl From<crate::ferret::mpcot::sender_regular::StateError> for SenderRegularError {
-    fn from(err: crate::ferret::mpcot::sender_regular::StateError) -> Self {
-        SenderRegularError::StateError(err.to_string())
-    }
-}
+// impl From<crate::ferret::mpcot::sender_regular::StateError> for SenderRegularError {
+//     fn from(err: crate::ferret::mpcot::sender_regular::StateError) -> Self {
+//         SenderRegularError::StateError(err.to_string())
+//     }
+// }
 
 /// A MPCOT regular receiver error
 #[derive(Debug, thiserror::Error)]
@@ -110,8 +122,8 @@ impl From<ReceiverRegularError> for OTError {
     }
 }
 
-impl From<crate::ferret::mpcot::receiver_regular::StateError> for ReceiverRegularError {
-    fn from(err: crate::ferret::mpcot::receiver_regular::StateError) -> Self {
-        ReceiverRegularError::StateError(err.to_string())
-    }
-}
+// impl From<crate::ferret::mpcot::receiver_regular::StateError> for ReceiverRegularError {
+//     fn from(err: crate::ferret::mpcot::receiver_regular::StateError) -> Self {
+//         ReceiverRegularError::StateError(err.to_string())
+//     }
+// }

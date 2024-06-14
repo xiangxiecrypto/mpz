@@ -19,26 +19,32 @@ mod tests {
     use mpz_common::executor::test_st_executor;
     use mpz_core::Block;
 
-    fn setup() -> (Sender<IdealCOTSender>, Receiver<IdealCOTReceiver>, Block) {
+    fn setup() -> (
+        Sender<IdealCOTSender>,
+        Receiver<IdealCOTReceiver>,
+        IdealCOTSender,
+        IdealCOTReceiver,
+        Block,
+    ) {
         let (mut rcot_sender, rcot_receiver) = ideal_rcot();
 
         let delta = rcot_sender.alice().get_mut().delta();
 
-        let sender = Sender::new(rcot_sender);
-        let receiver = Receiver::new(rcot_receiver);
+        let sender = Sender::new();
+        let receiver = Receiver::new();
 
-        (sender, receiver, delta)
+        (sender, receiver, rcot_sender, rcot_receiver, delta)
     }
 
     #[tokio::test]
     async fn test_spcot() {
         let (mut ctx_sender, mut ctx_receiver) = test_st_executor(8);
 
-        let (mut sender, mut receiver, delta) = setup();
+        let (mut sender, mut receiver, rcot_sender, rcot_receiver, delta) = setup();
 
         // shold set the same delta as in RCOT.
-        sender.setup_with_delta(delta).unwrap();
-        receiver.setup().unwrap();
+        sender.setup_with_delta(delta, rcot_sender).unwrap();
+        receiver.setup(rcot_receiver).unwrap();
 
         let hs = [8, 4];
         let alphas = [4, 2];
