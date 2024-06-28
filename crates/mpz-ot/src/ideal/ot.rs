@@ -6,13 +6,13 @@ use async_trait::async_trait;
 
 use mpz_common::{
     ideal::{ideal_f2p, Alice, Bob},
-    Context,
+    Allocate, Context, Preprocess,
 };
-use mpz_ot_core::ideal::ot::IdealOT;
+use mpz_ot_core::{ideal::ot::IdealOT, TransferId};
 
 use crate::{
-    CommittedOTReceiver, OTError, OTReceiver, OTReceiverOutput, OTSender, OTSenderOutput, OTSetup,
-    VerifiableOTSender,
+    CommittedOTReceiver, CommittedOTSender, OTError, OTReceiver, OTReceiverOutput, OTSender,
+    OTSenderOutput, OTSetup, VerifiableOTReceiver, VerifiableOTSender,
 };
 
 fn ot<T: Copy + Send + Sync + 'static>(
@@ -52,12 +52,37 @@ where
     }
 }
 
+impl<T> Allocate for IdealOTSender<T> {
+    fn alloc(&mut self, _count: usize) {}
+}
+
+#[async_trait]
+impl<Ctx, T> Preprocess<Ctx> for IdealOTSender<T>
+where
+    Ctx: Context,
+{
+    type Error = OTError;
+
+    async fn preprocess(&mut self, _ctx: &mut Ctx) -> Result<(), OTError> {
+        Ok(())
+    }
+}
+
 #[async_trait]
 impl<Ctx: Context, T: Copy + Send + Sync + 'static> OTSender<Ctx, [T; 2]>
     for IdealOTSender<[T; 2]>
 {
     async fn send(&mut self, ctx: &mut Ctx, msgs: &[[T; 2]]) -> Result<OTSenderOutput, OTError> {
         Ok(self.0.call(ctx, msgs.to_vec(), ot).await)
+    }
+}
+
+#[async_trait]
+impl<Ctx: Context, T: Copy + Send + Sync + 'static> CommittedOTSender<Ctx, [T; 2]>
+    for IdealOTSender<[T; 2]>
+{
+    async fn reveal(&mut self, _ctx: &mut Ctx) -> Result<(), OTError> {
+        Ok(())
     }
 }
 
@@ -84,6 +109,22 @@ where
     }
 }
 
+impl<T> Allocate for IdealOTReceiver<T> {
+    fn alloc(&mut self, _count: usize) {}
+}
+
+#[async_trait]
+impl<Ctx, T> Preprocess<Ctx> for IdealOTReceiver<T>
+where
+    Ctx: Context,
+{
+    type Error = OTError;
+
+    async fn preprocess(&mut self, _ctx: &mut Ctx) -> Result<(), OTError> {
+        Ok(())
+    }
+}
+
 #[async_trait]
 impl<Ctx: Context, T: Copy + Send + Sync + 'static> OTReceiver<Ctx, bool, T>
     for IdealOTReceiver<T>
@@ -102,6 +143,25 @@ impl<Ctx: Context, T: Copy + Send + Sync + 'static> CommittedOTReceiver<Ctx, boo
     for IdealOTReceiver<T>
 {
     async fn reveal_choices(&mut self, ctx: &mut Ctx) -> Result<(), OTError> {
-        Ok(self.0.call(ctx, (), verify).await)
+        self.0.call(ctx, (), verify).await;
+        Ok(())
+    }
+}
+
+#[async_trait]
+impl<Ctx: Context, U: Copy + Send + Sync + 'static, V> VerifiableOTReceiver<Ctx, bool, U, V>
+    for IdealOTReceiver<U>
+{
+    async fn accept_reveal(&mut self, _ctx: &mut Ctx) -> Result<(), OTError> {
+        Ok(())
+    }
+
+    async fn verify(
+        &mut self,
+        _ctx: &mut Ctx,
+        _id: TransferId,
+        _msgs: &[V],
+    ) -> Result<(), OTError> {
+        Ok(())
     }
 }

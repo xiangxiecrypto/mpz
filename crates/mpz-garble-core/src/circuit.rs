@@ -3,7 +3,7 @@ use std::ops::Index;
 use mpz_core::Block;
 use serde::{Deserialize, Serialize};
 
-use crate::EncodingCommitment;
+use crate::{EncodingCommitment, DEFAULT_BATCH_SIZE};
 
 /// Encrypted gate truth table
 ///
@@ -11,7 +11,7 @@ use crate::EncodingCommitment;
 /// privacy-free garbling mode where it will be reduced to 1.
 ///
 /// We do not yet support privacy-free garbling.
-#[derive(Debug, Clone, PartialEq, Serialize, Deserialize)]
+#[derive(Debug, Default, Clone, Copy, PartialEq, Serialize, Deserialize)]
 pub struct EncryptedGate(#[serde(with = "serde_arrays")] pub(crate) [Block; 2]);
 
 impl EncryptedGate {
@@ -19,7 +19,7 @@ impl EncryptedGate {
         Self(inner)
     }
 
-    pub(crate) fn to_bytes(&self) -> [u8; 32] {
+    pub(crate) fn to_bytes(self) -> [u8; 32] {
         let mut bytes = [0u8; 32];
         bytes[..16].copy_from_slice(&self.0[0].to_bytes());
         bytes[16..].copy_from_slice(&self.0[1].to_bytes());
@@ -32,6 +32,28 @@ impl Index<usize> for EncryptedGate {
 
     fn index(&self, index: usize) -> &Self::Output {
         &self.0[index]
+    }
+}
+
+/// A batch of encrypted gates.
+///
+/// # Parameters
+///
+/// - `N`: The size of a batch.
+#[derive(Debug, Serialize, Deserialize)]
+pub struct EncryptedGateBatch<const N: usize = DEFAULT_BATCH_SIZE>(
+    #[serde(with = "serde_arrays")] [EncryptedGate; N],
+);
+
+impl<const N: usize> EncryptedGateBatch<N> {
+    /// Creates a new batch of encrypted gates.
+    pub fn new(batch: [EncryptedGate; N]) -> Self {
+        Self(batch)
+    }
+
+    /// Returns the inner array.
+    pub fn into_array(self) -> [EncryptedGate; N] {
+        self.0
     }
 }
 

@@ -4,18 +4,21 @@ use async_trait::async_trait;
 
 use mpz_common::{
     ideal::{ideal_f2p, Alice, Bob},
-    Context,
+    Allocate, Context, Preprocess,
 };
-use mpz_core::Block;
 use mpz_ot_core::{ideal::rot::IdealROT, ROTReceiverOutput, ROTSenderOutput};
+use rand::distributions::{Distribution, Standard};
 
 use crate::{OTError, OTSetup, RandomOTReceiver, RandomOTSender};
 
-fn rot(
+fn rot<T: Copy>(
     f: &mut IdealROT,
     sender_count: usize,
     receiver_count: usize,
-) -> (ROTSenderOutput<[Block; 2]>, ROTReceiverOutput<bool, Block>) {
+) -> (ROTSenderOutput<[T; 2]>, ROTReceiverOutput<bool, T>)
+where
+    Standard: Distribution<T>,
+{
     assert_eq!(sender_count, receiver_count);
 
     f.random(sender_count)
@@ -41,13 +44,32 @@ where
     }
 }
 
+impl Allocate for IdealROTSender {
+    fn alloc(&mut self, _count: usize) {}
+}
+
 #[async_trait]
-impl<Ctx: Context> RandomOTSender<Ctx, [Block; 2]> for IdealROTSender {
+impl<Ctx> Preprocess<Ctx> for IdealROTSender
+where
+    Ctx: Context,
+{
+    type Error = OTError;
+
+    async fn preprocess(&mut self, _ctx: &mut Ctx) -> Result<(), OTError> {
+        Ok(())
+    }
+}
+
+#[async_trait]
+impl<T: Copy + Send + 'static, Ctx: Context> RandomOTSender<Ctx, [T; 2]> for IdealROTSender
+where
+    Standard: Distribution<T>,
+{
     async fn send_random(
         &mut self,
         ctx: &mut Ctx,
         count: usize,
-    ) -> Result<ROTSenderOutput<[Block; 2]>, OTError> {
+    ) -> Result<ROTSenderOutput<[T; 2]>, OTError> {
         Ok(self.0.call(ctx, count, rot).await)
     }
 }
@@ -66,13 +88,33 @@ where
     }
 }
 
+impl Allocate for IdealROTReceiver {
+    fn alloc(&mut self, _count: usize) {}
+}
+
 #[async_trait]
-impl<Ctx: Context> RandomOTReceiver<Ctx, bool, Block> for IdealROTReceiver {
+impl<Ctx> Preprocess<Ctx> for IdealROTReceiver
+where
+    Ctx: Context,
+{
+    type Error = OTError;
+
+    async fn preprocess(&mut self, _ctx: &mut Ctx) -> Result<(), OTError> {
+        Ok(())
+    }
+}
+
+#[async_trait]
+impl<T: Copy + Send + Sync + 'static, Ctx: Context> RandomOTReceiver<Ctx, bool, T>
+    for IdealROTReceiver
+where
+    Standard: Distribution<T>,
+{
     async fn receive_random(
         &mut self,
         ctx: &mut Ctx,
         count: usize,
-    ) -> Result<ROTReceiverOutput<bool, Block>, OTError> {
+    ) -> Result<ROTReceiverOutput<bool, T>, OTError> {
         Ok(self.0.call(ctx, count, rot).await)
     }
 }

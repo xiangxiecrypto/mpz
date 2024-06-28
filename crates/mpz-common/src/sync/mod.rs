@@ -1,7 +1,16 @@
 //! Synchronization primitives.
 
+<<<<<<< HEAD
 mod mutex;
 
+=======
+mod async_mutex;
+mod async_syncer;
+mod mutex;
+
+pub use async_mutex::AsyncMutex;
+pub use async_syncer::AsyncSyncer;
+>>>>>>> dev
 pub use mutex::{Mutex, MutexError};
 
 use std::{
@@ -11,8 +20,14 @@ use std::{
     task::{Context as StdContext, Poll, Waker},
 };
 
+<<<<<<< HEAD
 use futures::{future::poll_fn, Future};
 use serio::{stream::IoStreamExt, IoDuplex};
+=======
+use futures::Future;
+use serio::{stream::IoStreamExt, IoDuplex, SinkExt};
+use tokio::sync::Mutex as TokioMutex;
+>>>>>>> dev
 
 /// The error type for [`Syncer`].
 #[derive(Debug, thiserror::Error)]
@@ -52,11 +67,15 @@ impl Syncer {
     ///
     /// * `io` - The I/O channel of the logical thread.
     /// * `f` - The function to execute.
+<<<<<<< HEAD
     pub async fn sync<Io: IoDuplex<Ticket> + Unpin, F, R>(
         &self,
         io: &mut Io,
         f: F,
     ) -> Result<R, SyncError>
+=======
+    pub async fn sync<Io: IoDuplex + Unpin, F, R>(&self, io: &mut Io, f: F) -> Result<R, SyncError>
+>>>>>>> dev
     where
         F: FnOnce() -> R + Unpin,
         R: Unpin,
@@ -76,6 +95,7 @@ enum SyncerInner {
 
 #[derive(Debug, Default, Clone)]
 struct Leader {
+<<<<<<< HEAD
     tick: Arc<StdMutex<Ticket>>,
 }
 
@@ -85,10 +105,18 @@ impl Leader {
         io: &mut Io,
         f: F,
     ) -> Result<R, SyncError>
+=======
+    tick: Arc<TokioMutex<Ticket>>,
+}
+
+impl Leader {
+    async fn sync<Io: IoDuplex + Unpin, F, R>(&self, io: &mut Io, f: F) -> Result<R, SyncError>
+>>>>>>> dev
     where
         F: FnOnce() -> R + Unpin,
         R: Unpin,
     {
+<<<<<<< HEAD
         let mut io = Pin::new(io);
         poll_fn(|cx| io.as_mut().poll_ready(cx)).await?;
         let (output, tick) = {
@@ -98,6 +126,13 @@ impl Leader {
             (output, tick)
         };
         io.start_send(tick)?;
+=======
+        let mut tick_lock = self.tick.lock().await;
+        io.send(tick_lock.increment_in_place()).await?;
+        let output = f();
+        drop(tick_lock);
+
+>>>>>>> dev
         Ok(output)
     }
 }
@@ -108,11 +143,15 @@ struct Follower {
 }
 
 impl Follower {
+<<<<<<< HEAD
     async fn sync<Io: IoDuplex<Ticket> + Unpin, F, R>(
         &self,
         io: &mut Io,
         f: F,
     ) -> Result<R, SyncError>
+=======
+    async fn sync<Io: IoDuplex + Unpin, F, R>(&self, io: &mut Io, f: F) -> Result<R, SyncError>
+>>>>>>> dev
     where
         F: FnOnce() -> R + Unpin,
         R: Unpin,
@@ -214,7 +253,11 @@ impl Ticket {
 mod tests {
     use std::sync::MutexGuard;
 
+<<<<<<< HEAD
     use futures::executor::block_on;
+=======
+    use futures::{executor::block_on, poll};
+>>>>>>> dev
     use serio::channel::duplex;
 
     use super::*;
@@ -231,6 +274,7 @@ mod tests {
         let log_a = Arc::new(StdMutex::new(Vec::new()));
         let log_b = Arc::new(StdMutex::new(Vec::new()));
 
+<<<<<<< HEAD
         let a = async {
             futures::try_join!(
                 syncer_a.sync(&mut io_0a, || {
@@ -270,6 +314,54 @@ mod tests {
 
         block_on(async {
             futures::join!(a, b);
+=======
+        block_on(async {
+            syncer_a
+                .sync(&mut io_0a, || {
+                    let mut log = log_a.lock().unwrap();
+                    log.push(0);
+                })
+                .await
+                .unwrap();
+            syncer_a
+                .sync(&mut io_1a, || {
+                    let mut log = log_a.lock().unwrap();
+                    log.push(1);
+                })
+                .await
+                .unwrap();
+            syncer_a
+                .sync(&mut io_2a, || {
+                    let mut log = log_a.lock().unwrap();
+                    log.push(2);
+                })
+                .await
+                .unwrap();
+        });
+
+        let mut fut_a = Box::pin(syncer_b.sync(&mut io_2b, || {
+            let mut log = log_b.lock().unwrap();
+            log.push(2);
+        }));
+
+        let mut fut_b = Box::pin(syncer_b.sync(&mut io_0b, || {
+            let mut log = log_b.lock().unwrap();
+            log.push(0);
+        }));
+
+        let mut fut_c = Box::pin(syncer_b.sync(&mut io_1b, || {
+            let mut log = log_b.lock().unwrap();
+            log.push(1);
+        }));
+
+        block_on(async move {
+            // Poll out of order.
+            assert!(poll!(&mut fut_a).is_pending());
+            assert!(poll!(&mut fut_c).is_pending());
+            assert!(poll!(&mut fut_b).is_ready());
+            assert!(poll!(&mut fut_c).is_ready());
+            assert!(poll!(&mut fut_a).is_ready());
+>>>>>>> dev
         });
 
         let log_a = Arc::into_inner(log_a).unwrap().into_inner().unwrap();

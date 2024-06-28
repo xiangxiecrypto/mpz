@@ -21,15 +21,12 @@ pub(crate) mod internal_circuits;
 pub(crate) mod memory;
 pub mod ot;
 pub mod protocol;
-mod threadpool;
 pub mod value;
 
 pub use evaluator::{Evaluator, EvaluatorConfig, EvaluatorConfigBuilder, EvaluatorError};
 pub use generator::{Generator, GeneratorConfig, GeneratorConfigBuilder, GeneratorError};
 pub use memory::{AssignedValues, ValueMemory};
-pub use threadpool::ThreadPool;
 
-use utils::id::NestedId;
 use value::{ArrayRef, ValueId, ValueRef};
 
 /// Errors that can occur when using an implementation of [`Vm`].
@@ -158,32 +155,6 @@ pub enum DecodeError {
 pub trait Vm {
     /// The type of thread.
     type Thread: Thread + Send + 'static;
-
-    /// Creates a new thread.
-    async fn new_thread(&mut self, id: &str) -> Result<Self::Thread, VmError>;
-
-    /// Creates a new thread pool.
-    ///
-    /// A thread pool must have at least one thread.
-    async fn new_thread_pool(
-        &mut self,
-        id: &str,
-        thread_count: usize,
-    ) -> Result<ThreadPool<Self::Thread>, VmError> {
-        if thread_count == 0 {
-            return Err(VmError::ThreadPoolEmpty);
-        }
-
-        let mut id = NestedId::new(id).append_counter();
-        let mut threads = Vec::with_capacity(thread_count);
-        for _ in 0..thread_count {
-            threads.push(
-                self.new_thread(&id.increment_in_place().to_string())
-                    .await?,
-            );
-        }
-        Ok(ThreadPool::new(threads))
-    }
 }
 
 /// This trait provides an abstraction of a thread in an MPC virtual machine.
@@ -334,6 +305,9 @@ pub trait Load {
 /// This trait provides methods for executing a circuit.
 #[async_trait]
 pub trait Execute {
+    /// Commits the provided inputs values for execution.
+    async fn commit(&mut self, inputs: &[ValueRef]) -> Result<(), ExecutionError>;
+
     /// Executes a circuit with the provided inputs, assigning to the provided output values
     async fn execute(
         &mut self,
@@ -347,6 +321,9 @@ pub trait Execute {
 /// circuit.
 #[async_trait]
 pub trait Prove {
+    /// Commits the provided input values for proving.
+    async fn commit_prove(&mut self, inputs: &[ValueRef]) -> Result<(), ProveError>;
+
     /// Executes the provided circuit as the prover, assigning to the provided output values.
     async fn execute_prove(
         &mut self,
@@ -363,6 +340,9 @@ pub trait Prove {
 /// circuit.
 #[async_trait]
 pub trait Verify {
+    /// Commits the provided input values for verifying.
+    async fn commit_verify(&mut self, inputs: &[ValueRef]) -> Result<(), VerifyError>;
+
     /// Executes the provided circuit as the verifier, assigning to the provided output values.
     async fn execute_verify(
         &mut self,

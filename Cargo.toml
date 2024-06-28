@@ -1,0 +1,126 @@
+[workspace]
+members = [
+    "crates/mpz-core",
+    "crates/mpz-common",
+    "crates/mpz-fields",
+    "crates/mpz-circuits",
+    "crates/mpz-circuits-macros",
+    "crates/mpz-cointoss",
+    "crates/mpz-cointoss-core",
+    "crates/mpz-ot",
+    "crates/mpz-ot-core",
+    "crates/mpz-garble",
+    "crates/mpz-garble-core",
+    "crates/mpz-share-conversion-core",
+    "crates/mpz-share-conversion",
+    "crates/matrix-transpose",
+    "crates/clmul",
+    "crates/mpz-ole-core",
+    "crates/mpz-ole",
+]
+resolver = "2"
+
+[workspace.lints.rust]
+# unsafe_code = "forbid"
+
+[workspace.lints.clippy]
+# enum_glob_use = "deny"
+
+[workspace.dependencies]
+mpz-core = { path = "crates/mpz-core" }
+mpz-common = { path = "crates/mpz-common" }
+mpz-fields = { path = "crates/mpz-fields" }
+mpz-circuits = { path = "crates/mpz-circuits" }
+mpz-circuits-macros = { path = "crates/mpz-circuits-macros" }
+mpz-cointoss = { path = "crates/mpz-cointoss" }
+mpz-cointoss-core = { path = "crates/mpz-cointoss-core" }
+mpz-ot = { path = "crates/mpz-ot" }
+mpz-ot-core = { path = "crates/mpz-ot-core" }
+mpz-garble = { path = "crates/mpz-garble" }
+mpz-garble-core = { path = "crates/mpz-garble-core" }
+mpz-share-conversion-core = { path = "crates/mpz-share-conversion-core" }
+mpz-ole = { path = "crates/mpz-ole" }
+mpz-ole-core = { path = "crates/mpz-ole-core" }
+clmul = { path = "crates/clmul" }
+matrix-transpose = { path = "crates/matrix-transpose" }
+
+tlsn-utils = { git = "https://github.com/tlsnotary/tlsn-utils", rev = "6e0be94" }
+tlsn-utils-aio = { git = "https://github.com/tlsnotary/tlsn-utils", rev = "6e0be94" }
+
+# rand
+rand_chacha = "0.3"
+rand = "0.8"
+rand_core = "0.6"
+
+# crypto
+cipher = "0.4"
+sha2 = "0.10"
+blake3 = "1.3.3"
+aes = "0.8"
+ctr = "0.9"
+digest = "0.10"
+curve25519-dalek = "4.0.0-rc.0"
+elliptic-curve = "0.11"
+merlin = "3"
+p256 = "0.10"
+ghash_rc = { package = "ghash", version = "0.4" }
+ark-ff = "0.4"
+ark-secp256r1 = "0.4"
+num-bigint = "0.4"
+
+# async
+async-trait = "0.1"
+futures = "0.3"
+futures-util = "0.3"
+tokio = "1.23"
+tokio-util = "0.7"
+scoped-futures = "0.1.3"
+pollster = "0.3"
+pin-project-lite = "0.2"
+
+# serialization
+ark-serialize = "0.4"
+serde = "1.0"
+serde_yaml = "0.9"
+serde_arrays = "0.1"
+bincode = "1.3.3"
+prost-build = "0.9"
+bytes = "1"
+yamux = "0.10"
+bytemuck = { version = "1.13", features = ["derive"] }
+serio = "0.1"
+
+# io
+uid-mux = "0.1"
+
+# testing
+prost = "0.9"
+rstest = "0.12"
+pretty_assertions = "1"
+criterion = "0.3"
+
+# config
+cfg-if = "1"
+cpufeatures = "0.2"
+rustversion = "1"
+
+# error/log
+tracing = "0.1"
+tracing-subscriber = "0.3"
+thiserror = "1"
+opaque-debug = "0.3"
+
+# misc
+clap = "3"
+regex = "1"
+rayon = "1"
+hex = "0.4"
+lazy_static = "1"
+derive_builder = "0.11"
+once_cell = "1"
+hybrid-array = "0.2.0-rc.8"
+typenum = "1"
+# DO NOT BUMP, SEE https://github.com/privacy-scaling-explorations/mpz/issues/61
+generic-array = "0.14"
+itybity = "0.2"
+enum-try-as-inner = "0.1.0"
