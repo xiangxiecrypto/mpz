@@ -4,7 +4,7 @@ use async_trait::async_trait;
 
 use mpz_common::{
     ideal::{ideal_f2p, Alice, Bob},
-    Context,
+    Allocate, Context, Preprocess,
 };
 use mpz_core::Block;
 use mpz_ot_core::{
@@ -46,15 +46,8 @@ pub fn ideal_rcot() -> (IdealCOTSender, IdealCOTReceiver) {
 }
 
 /// Ideal COT sender.
-#[derive(Debug, Clone, Default)]
+#[derive(Debug, Clone)]
 pub struct IdealCOTSender(Alice<IdealCOT>);
-
-impl IdealCOTSender {
-    /// Returns Alice.
-    pub fn alice(&mut self) -> &mut Alice<IdealCOT> {
-        &mut self.0
-    }
-}
 
 #[async_trait]
 impl<Ctx> OTSetup<Ctx> for IdealCOTSender
@@ -62,6 +55,22 @@ where
     Ctx: Context,
 {
     async fn setup(&mut self, _ctx: &mut Ctx) -> Result<(), OTError> {
+        Ok(())
+    }
+}
+
+impl Allocate for IdealCOTSender {
+    fn alloc(&mut self, _count: usize) {}
+}
+
+#[async_trait]
+impl<Ctx> Preprocess<Ctx> for IdealCOTSender
+where
+    Ctx: Context,
+{
+    type Error = OTError;
+
+    async fn preprocess(&mut self, _ctx: &mut Ctx) -> Result<(), OTError> {
         Ok(())
     }
 }
@@ -89,7 +98,7 @@ impl<Ctx: Context> RandomCOTSender<Ctx, Block> for IdealCOTSender {
 }
 
 /// Ideal COT receiver.
-#[derive(Debug, Clone, Default)]
+#[derive(Debug, Clone)]
 pub struct IdealCOTReceiver(Bob<IdealCOT>);
 
 #[async_trait]
@@ -98,6 +107,22 @@ where
     Ctx: Context,
 {
     async fn setup(&mut self, _ctx: &mut Ctx) -> Result<(), OTError> {
+        Ok(())
+    }
+}
+
+impl Allocate for IdealCOTReceiver {
+    fn alloc(&mut self, _count: usize) {}
+}
+
+#[async_trait]
+impl<Ctx> Preprocess<Ctx> for IdealCOTReceiver
+where
+    Ctx: Context,
+{
+    type Error = OTError;
+
+    async fn preprocess(&mut self, _ctx: &mut Ctx) -> Result<(), OTError> {
         Ok(())
     }
 }

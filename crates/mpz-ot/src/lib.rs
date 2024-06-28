@@ -10,13 +10,11 @@
 )]
 
 pub mod chou_orlandi;
-pub mod ferret;
 #[cfg(any(test, feature = "ideal"))]
 pub mod ideal;
 pub mod kos;
 
 use async_trait::async_trait;
-use mpz_common::Context;
 
 pub use mpz_ot_core::{
     COTReceiverOutput, COTSenderOutput, OTReceiverOutput, OTSenderOutput, RCOTReceiverOutput,
@@ -29,6 +27,8 @@ pub use mpz_ot_core::{
 pub enum OTError {
     #[error(transparent)]
     IOError(#[from] std::io::Error),
+    #[error("context error: {0}")]
+    Context(#[from] mpz_common::ContextError),
     #[error("mutex error: {0}")]
     Mutex(#[from] mpz_common::sync::MutexError),
     #[error("sender error: {0}")]
@@ -39,10 +39,7 @@ pub enum OTError {
 
 /// An oblivious transfer protocol that needs to perform a one-time setup.
 #[async_trait]
-pub trait OTSetup<Ctx>
-where
-    Ctx: Context,
-{
+pub trait OTSetup<Ctx> {
     /// Runs any one-time setup for the protocol.
     ///
     /// # Arguments
@@ -133,12 +130,7 @@ pub trait OTReceiver<Ctx, T, U> {
 
 /// A correlated oblivious transfer receiver.
 #[async_trait]
-pub trait COTReceiver<Ctx, T, U>
-where
-    Ctx: Context,
-    T: Send + Sync,
-    U: Send + Sync,
-{
+pub trait COTReceiver<Ctx, T, U> {
     /// Obliviously receives correlated messages from the sender.
     ///
     /// # Arguments
@@ -154,12 +146,7 @@ where
 
 /// A random OT receiver.
 #[async_trait]
-pub trait RandomOTReceiver<Ctx, T, U>
-where
-    Ctx: Context,
-    T: Send + Sync,
-    U: Send + Sync,
-{
+pub trait RandomOTReceiver<Ctx, T, U> {
     /// Outputs the choice bits and the corresponding messages.
     ///
     /// # Arguments
@@ -175,12 +162,7 @@ where
 
 /// A random correlated oblivious transfer receiver.
 #[async_trait]
-pub trait RandomCOTReceiver<Ctx, T, U>
-where
-    Ctx: Context,
-    T: Send + Sync,
-    U: Send + Sync,
-{
+pub trait RandomCOTReceiver<Ctx, T, U> {
     /// Obliviously receives correlated messages with random choices.
     ///
     /// Returns a tuple of the choices and the messages, respectively.
@@ -199,11 +181,7 @@ where
 /// An oblivious transfer sender that is committed to its messages and can reveal them
 /// to the receiver to verify them.
 #[async_trait]
-pub trait CommittedOTSender<Ctx, T>: OTSender<Ctx, T>
-where
-    Ctx: Context,
-    T: Send + Sync,
-{
+pub trait CommittedOTSender<Ctx, T>: OTSender<Ctx, T> {
     /// Reveals all messages sent to the receiver.
     ///
     /// # Warning
@@ -245,13 +223,14 @@ pub trait CommittedOTReceiver<Ctx, T, U>: OTReceiver<Ctx, T, U> {
 
 /// An oblivious transfer receiver that can verify the sender's messages.
 #[async_trait]
-pub trait VerifiableOTReceiver<Ctx, T, U, V>: OTReceiver<Ctx, T, U>
-where
-    Ctx: Context,
-    T: Send + Sync,
-    U: Send + Sync,
-    V: Send + Sync,
-{
+pub trait VerifiableOTReceiver<Ctx, T, U, V>: OTReceiver<Ctx, T, U> {
+    /// Accepts revealed secrets from the sender which are requried to verify previous messages.
+    ///
+    /// # Arguments
+    ///
+    /// * `ctx` - The thread context.
+    async fn accept_reveal(&mut self, ctx: &mut Ctx) -> Result<(), OTError>;
+
     /// Verifies purported messages sent by the sender.
     ///
     /// # Arguments

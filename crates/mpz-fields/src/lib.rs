@@ -8,12 +8,16 @@ pub mod gf2_128;
 pub mod p256;
 
 use std::{
+    error::Error,
     fmt::Debug,
     ops::{Add, Mul, Neg},
 };
 
+use hybrid_array::{Array, ArraySize};
 use itybity::{BitLength, FromBitIterator, GetBit, Lsb0, Msb0};
 use rand::{distributions::Standard, prelude::Distribution, Rng};
+use thiserror::Error;
+use typenum::Unsigned;
 
 /// A trait for finite fields.
 pub trait Field:
@@ -35,9 +39,20 @@ pub trait Field:
     + GetBit<Lsb0>
     + GetBit<Msb0>
     + BitLength
+    + Unpin
+    + TryFrom<Array<u8, Self::ByteSize>, Error = FieldError>
 {
     /// The number of bits of a field element.
-    const BIT_SIZE: u32;
+    const BIT_SIZE: usize = <Self::BitSize as Unsigned>::USIZE;
+
+    /// The number of bytes of a field element.
+    const BYTE_SIZE: usize = <Self::ByteSize as Unsigned>::USIZE;
+
+    /// The number of bits of a field element as a type number.
+    type BitSize: ArraySize;
+
+    /// The number of bytes of a field element as a type number.
+    type ByteSize: ArraySize;
 
     /// Return the additive identity element.
     fn zero() -> Self;
@@ -57,6 +72,11 @@ pub trait Field:
     /// Return field element as big-endian bytes.
     fn to_be_bytes(&self) -> Vec<u8>;
 }
+
+/// Error type for finite fields.
+#[derive(Debug, Error)]
+#[error(transparent)]
+pub struct FieldError(Box<dyn Error + Send + Sync + 'static>);
 
 /// A trait for sampling random elements of the field.
 ///
@@ -131,11 +151,11 @@ mod tests {
     }
 
     pub(crate) fn test_field_bit_ops<T: Field>() {
-        let mut a = vec![false; T::BIT_SIZE as usize];
-        let mut b = vec![false; T::BIT_SIZE as usize];
+        let mut a = vec![false; T::BIT_SIZE];
+        let mut b = vec![false; T::BIT_SIZE];
 
         a[0] = true;
-        b[T::BIT_SIZE as usize - 1] = true;
+        b[T::BIT_SIZE - 1] = true;
 
         let a = T::from_lsb0_iter(a);
         let b = T::from_lsb0_iter(b);
@@ -143,7 +163,7 @@ mod tests {
         assert_eq!(a, T::one());
         assert!(GetBit::<Lsb0>::get_bit(&a, 0));
 
-        assert_eq!(b, T::two_pow(T::BIT_SIZE - 1));
-        assert!(GetBit::<Lsb0>::get_bit(&b, (T::BIT_SIZE - 1) as usize));
+        assert_eq!(b, T::two_pow(T::BIT_SIZE as u32 - 1));
+        assert!(GetBit::<Lsb0>::get_bit(&b, T::BIT_SIZE - 1));
     }
 }
