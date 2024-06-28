@@ -116,8 +116,6 @@ impl Sender<state::Extension> {
 
 /// The sender's state.
 pub mod state {
-    use crate::TransferId;
-
     use super::*;
 
     mod sealed {
